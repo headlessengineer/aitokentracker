@@ -1,0 +1,81 @@
+'use client'
+
+import { useMemo } from 'react'
+import { EChart } from '@/components/charts/EChart'
+import { useChartTheme } from '@/lib/useChartTheme'
+import type { DailyActivity } from '@/plugins/core/types'
+import styles from './ActivityHeatmap.module.css'
+
+interface ActivityHeatmapProps {
+  activity: DailyActivity[]
+  year?: number
+}
+
+export function ActivityHeatmap({ activity, year }: ActivityHeatmapProps) {
+  const targetYear = year ?? new Date().getFullYear()
+  const theme = useChartTheme()
+
+  const option = useMemo(() => {
+    const data = activity
+      .filter((d) => d.date.startsWith(String(targetYear)))
+      .map((d) => [d.date, d.tokens])
+
+    return {
+      tooltip: {
+        formatter: (params: unknown) => {
+          const p = params as { value: [string, number] }
+          const [date, tokens] = p.value
+          const k = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}K` : String(tokens)
+          return `${date}<br/><strong>${k}</strong> tokens`
+        },
+        backgroundColor: theme.surfaceCard,
+        borderColor: theme.border,
+        textStyle: { color: theme.fg, fontSize: 13 },
+      },
+      visualMap: {
+        show: false,
+        min: 0,
+        max: Math.max(...activity.map((d) => d.tokens), 1),
+        inRange: { color: [theme.elevated, theme.primary] },
+      },
+      calendar: {
+        top: 24,
+        left: 40,
+        right: 8,
+        bottom: 8,
+        cellSize: ['auto' as const, 14],
+        range: String(targetYear),
+        itemStyle: {
+          borderColor: theme.bg,
+          borderWidth: 2,
+          borderRadius: 2,
+          color: theme.elevated,
+        },
+        yearLabel: { show: false },
+        monthLabel: {
+          color: theme.fgMuted,
+          fontSize: 11,
+        },
+        dayLabel: {
+          firstDay: 1,
+          color: theme.fgMuted,
+          fontSize: 11,
+        },
+        splitLine: { show: false },
+      },
+      series: [
+        {
+          type: 'heatmap' as const,
+          coordinateSystem: 'calendar' as const,
+          data,
+        },
+      ],
+    }
+  }, [activity, targetYear, theme])
+
+  return (
+    <div className={styles.root}>
+      <EChart option={option} style={{ width: '100%', height: 160 }} />
+    </div>
+  )
+}

@@ -1,0 +1,36 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+}
+
+.swatch {
+  width: var(--size-swatch);
+  height: var(--size-swatch);
+  border-radius: var(--radius-2xs);
+  flex-shrink: 0;
+}
+
+.legendLabel {
+  flex: 1;
+  color: var(--fg-secondary);
+}
+
+.legendValue {
+  font-weight: var(--font-weight-semibold);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}

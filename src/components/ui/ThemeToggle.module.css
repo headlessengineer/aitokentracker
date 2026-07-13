@@ -1,0 +1,23 @@
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-icon-btn);
+  height: var(--size-icon-btn);
+  border: none;
+  background: transparent;
+  color: var(--fg-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.toggle:hover {
+  color: var(--fg);
+  background: var(--elevated);
+}
+
+.placeholder {
+  width: var(--size-icon-btn);
+  height: var(--size-icon-btn);
+}
