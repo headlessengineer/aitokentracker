@@ -80,7 +80,7 @@ export default async function PluginPage({
 
   const data = await plugin.collect({ days })
   const { summary } = data
-  const hasData = summary.totalTokens.total > 0
+  const hasData = summary.totalTokens.total > 0 || summary.totalConversations > 0
 
   const today = new Date().toISOString().split('T')[0]
   const todayTokens = summary.dailyActivity.find((d) => d.date === today)?.tokens ?? 0
@@ -120,18 +120,26 @@ export default async function PluginPage({
       {hasData && (
         <>
           {/* Token breakdown + Timeline */}
-          <div className={styles.twoCol}>
-            <div className={styles.card}>
-              <Section title="Token breakdown">
-                <TokenBreakdown tokens={summary.totalTokens} />
-              </Section>
+          {summary.totalTokens.total > 0 ? (
+            <div className={styles.twoCol}>
+              <div className={styles.card}>
+                <Section title="Token breakdown">
+                  <TokenBreakdown tokens={summary.totalTokens} />
+                </Section>
+              </div>
+              <div className={styles.card}>
+                <Section title={`Daily usage — last ${days} day${days === 1 ? '' : 's'}`}>
+                  <TimelineChart activity={summary.dailyActivity} days={days} />
+                </Section>
+              </div>
             </div>
+          ) : (
             <div className={styles.card}>
               <Section title={`Daily usage — last ${days} day${days === 1 ? '' : 's'}`}>
                 <TimelineChart activity={summary.dailyActivity} days={days} />
               </Section>
             </div>
-          </div>
+          )}
 
           {/* Annual heatmap */}
           {summary.dailyActivity.length > 0 && (

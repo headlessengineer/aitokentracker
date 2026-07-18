@@ -16,6 +16,8 @@ export function TimelineChart({ activity, days = 30 }: TimelineChartProps) {
 
   const option = useMemo(() => {
     const sorted = [...activity].sort((a, b) => a.date.localeCompare(b.date)).slice(-days)
+    const useConversations = sorted.every((d) => d.tokens === 0)
+    const label = useConversations ? 'conversations' : 'tokens'
 
     return {
       grid: { top: 16, right: 16, bottom: 32, left: 56, containLabel: false },
@@ -28,7 +30,7 @@ export function TimelineChart({ activity, days = 30 }: TimelineChartProps) {
           const list = params as Array<{ axisValue: string; value: number }>
           const p = list[0]
           const k = p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}K` : String(p.value)
-          return `${p.axisValue}<br/><strong>${k}</strong> tokens`
+          return `${p.axisValue}<br/><strong>${k}</strong> ${label}`
         },
       },
       xAxis: {
@@ -45,6 +47,7 @@ export function TimelineChart({ activity, days = 30 }: TimelineChartProps) {
       },
       yAxis: {
         type: 'value' as const,
+        minInterval: useConversations ? 1 : undefined,
         axisLabel: {
           color: theme.fgMuted,
           fontSize: 11,
@@ -57,7 +60,7 @@ export function TimelineChart({ activity, days = 30 }: TimelineChartProps) {
       series: [
         {
           type: 'bar' as const,
-          data: sorted.map((d) => d.tokens),
+          data: sorted.map((d) => useConversations ? d.conversations : d.tokens),
           itemStyle: {
             color: theme.primary,
             borderRadius: [3, 3, 0, 0],

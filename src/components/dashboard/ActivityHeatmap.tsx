@@ -16,17 +16,19 @@ export function ActivityHeatmap({ activity, year }: ActivityHeatmapProps) {
   const theme = useChartTheme()
 
   const option = useMemo(() => {
-    const data = activity
-      .filter((d) => d.date.startsWith(String(targetYear)))
-      .map((d) => [d.date, d.tokens])
+    const useConversations = activity.every((d) => d.tokens === 0)
+    const label = useConversations ? 'conversations' : 'tokens'
+    const yearActivity = activity.filter((d) => d.date.startsWith(String(targetYear)))
+    const data = yearActivity.map((d) => [d.date, useConversations ? d.conversations : d.tokens])
+    const maxVal = Math.max(...yearActivity.map((d) => useConversations ? d.conversations : d.tokens), 1)
 
     return {
       tooltip: {
         formatter: (params: unknown) => {
           const p = params as { value: [string, number] }
-          const [date, tokens] = p.value
-          const k = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}K` : String(tokens)
-          return `${date}<br/><strong>${k}</strong> tokens`
+          const [date, val] = p.value
+          const k = val >= 1000 ? `${(val / 1000).toFixed(1)}K` : String(val)
+          return `${date}<br/><strong>${k}</strong> ${label}`
         },
         backgroundColor: theme.surfaceCard,
         borderColor: theme.border,
@@ -35,7 +37,7 @@ export function ActivityHeatmap({ activity, year }: ActivityHeatmapProps) {
       visualMap: {
         show: false,
         min: 0,
-        max: Math.max(...activity.map((d) => d.tokens), 1),
+        max: maxVal,
         inRange: { color: [theme.elevated, theme.primary] },
       },
       calendar: {
