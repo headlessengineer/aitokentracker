@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import styles from './Wordmark.module.css'
 
 interface WordmarkProps {
@@ -6,15 +7,16 @@ interface WordmarkProps {
 
 export function Wordmark({ className }: WordmarkProps) {
   return (
-    <span
+    <Link
+      href="/"
       className={[styles.wordmark, className].filter(Boolean).join(' ')}
-      aria-label="HEADLESSENGINEER"
+      aria-label="Token Tracker — go to overview"
     >
-      <span className={styles.head}>HEADLESS</span>
+      <span className={styles.head}>TOKEN</span>
       <span className={styles.tail}>
-        <span className={styles.swapA}>ENGINEER</span>
-        <span className={styles.swapB} aria-hidden="true">ENGINEER</span>
+        <span className={styles.swapA}>TRACKER</span>
+        <span className={styles.swapB} aria-hidden="true">TRACKER</span>
       </span>
-    </span>
+    </Link>
   )
 }

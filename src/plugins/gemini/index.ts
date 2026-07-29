@@ -87,8 +87,10 @@ const GEMINI_PLUGIN: TokenPlugin = {
         totalOutput += estimatedOutput
 
         const dateKey = lastTs.toISOString().slice(0, 10)
-        const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, conversations: 0 }
+        const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, conversations: 0 }
         day.tokens += estimatedInput + estimatedOutput
+        day.input += estimatedInput
+        day.output += estimatedOutput
         day.conversations += 1
         dailyMap.set(dateKey, day)
 
@@ -141,6 +143,7 @@ const GEMINI_PLUGIN: TokenPlugin = {
           cacheWrite: 0,
           total: totalTokens,
         },
+        totalCostUSD: 0,
         totalConversations: conversations.length,
         activeConversations: conversations.filter((c) => c.status === 'active').length,
         topProjects: [...projectMap.values()]
@@ -148,9 +151,15 @@ const GEMINI_PLUGIN: TokenPlugin = {
           .slice(0, 10),
         topModels:
           totalTokens > 0
-            ? [{ model: DEFAULT_MODEL, tokens: totalTokens, conversations: conversations.length }]
+            ? [{
+                model: DEFAULT_MODEL,
+                tokens: totalTokens,
+                tokensDetail: { input: totalInput, output: totalOutput, cacheRead: 0, cacheWrite: 0, total: totalTokens },
+                conversations: conversations.length,
+              }]
             : [],
         dailyActivity: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+        dailyCost: [],
         lastActivity,
         conversations: conversations
           .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())

@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
 import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
 
@@ -41,8 +41,9 @@ function isRoutingMode(s: string): boolean {
   return s === 'adaptive'
 }
 
-function readDevinCli(cutoff: Date): ConversationSummary[] {
+async function readDevinCli(cutoff: Date): Promise<ConversationSummary[]> {
   if (!fsSync.existsSync(CLI_DB)) return []
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(CLI_DB, { readOnly: true })
@@ -207,7 +208,7 @@ const DEVIN_PLUGIN: TokenPlugin = {
     const days = options?.days ?? 30
     const cutoff = new Date(Date.now() - days * 86_400_000)
 
-    const cliConvs = readDevinCli(cutoff)
+    const cliConvs = await readDevinCli(cutoff)
     const desktopConvs = await readDevinDesktop(cutoff)
     const conversations = [...cliConvs, ...desktopConvs]
 

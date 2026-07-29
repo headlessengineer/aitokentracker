@@ -8,6 +8,7 @@ import type {
   TokenUsage,
   ConversationSummary,
   DailyActivity,
+  DailyCost,
   ProjectStats,
   ModelStats,
   ToolCallStats,
@@ -59,9 +60,11 @@ const CLAUDE_PLUGIN: TokenPlugin = {
     const rawConversations = collectConversations()
 
     const aggregatedTokens = emptyUsage()
+    let totalCostUSD = 0
     const projectMap = new Map<string, ProjectStats>()
     const modelMap = new Map<string, ModelStats>()
     const activityMap = new Map<string, DailyActivity>()
+    const costMap = new Map<string, number>()
     const toolCountMap = new Map<string, number>()
     const subAgentMap = new Map<string, { invocations: number; conversations: Set<string> }>()
     const skillMap = new Map<string, { invocations: number; conversations: Set<string> }>()
@@ -76,10 +79,13 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       if (conv.lastModified < since) continue
 
       const convTokens = emptyUsage()
+      let convCostUSD = 0
       let primaryModel = ''
       let messageCount = 0
 
       for (const entry of conv.entries) {
+        if (entry.costUSD) convCostUSD += entry.costUSD
+
         if (entry.type !== 'assistant' || !entry.message) continue
 
         // Token usage
@@ -161,6 +167,12 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       aggregatedTokens.cacheRead += convTokens.cacheRead
       aggregatedTokens.cacheWrite += convTokens.cacheWrite
       aggregatedTokens.total += convTokens.total
+      totalCostUSD += convCostUSD
+
+      if (conv.lastModified >= since) {
+        const ck = conv.lastModified.toISOString().split('T')[0]
+        costMap.set(ck, (costMap.get(ck) ?? 0) + convCostUSD)
+      }
 
       // Project
       const proj = projectMap.get(conv.project)
@@ -182,9 +194,19 @@ const CLAUDE_PLUGIN: TokenPlugin = {
         const model = modelMap.get(primaryModel)
         if (model) {
           model.tokens += convTokens.total
+          model.tokensDetail.input += convTokens.input
+          model.tokensDetail.output += convTokens.output
+          model.tokensDetail.cacheRead += convTokens.cacheRead
+          model.tokensDetail.cacheWrite += convTokens.cacheWrite
+          model.tokensDetail.total += convTokens.total
           model.conversations++
         } else {
-          modelMap.set(primaryModel, { model: primaryModel, tokens: convTokens.total, conversations: 1 })
+          modelMap.set(primaryModel, {
+            model: primaryModel,
+            tokens: convTokens.total,
+            tokensDetail: { ...convTokens },
+            conversations: 1,
+          })
         }
       }
 
@@ -194,9 +216,21 @@ const CLAUDE_PLUGIN: TokenPlugin = {
         const day = activityMap.get(dateKey)
         if (day) {
           day.tokens += convTokens.total
+          day.input += convTokens.input
+          day.output += convTokens.output
+          day.cacheRead += convTokens.cacheRead
+          day.cacheWrite += convTokens.cacheWrite
           day.conversations++
         } else {
-          activityMap.set(dateKey, { date: dateKey, tokens: convTokens.total, conversations: 1 })
+          activityMap.set(dateKey, {
+            date: dateKey,
+            tokens: convTokens.total,
+            input: convTokens.input,
+            output: convTokens.output,
+            cacheRead: convTokens.cacheRead,
+            cacheWrite: convTokens.cacheWrite,
+            conversations: 1,
+          })
         }
       }
 
@@ -256,10 +290,15 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       callCount: def.approxCallCount,
     }))
 
+    const dailyCost: DailyCost[] = Array.from(costMap.entries())
+      .map(([date, costUSD]) => ({ date, costUSD }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
     return {
       pluginId: 'claude',
       summary: {
         totalTokens: aggregatedTokens,
+        totalCostUSD,
         totalConversations: conversations.length,
         activeConversations: conversations.filter((c) => c.status === 'active').length,
         topProjects: Array.from(projectMap.values())
@@ -269,6 +308,7 @@ const CLAUDE_PLUGIN: TokenPlugin = {
           .sort((a, b) => b.tokens - a.tokens),
         dailyActivity: Array.from(activityMap.values())
           .sort((a, b) => a.date.localeCompare(b.date)),
+        dailyCost,
         lastActivity: conversations.length > 0 ? conversations[0].lastActivity : null,
         conversations: conversations.slice(0, options.limit ?? 100),
         topTools,

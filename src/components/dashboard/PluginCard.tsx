@@ -1,15 +1,17 @@
 import type { PluginStatus } from '@/plugins/core/types'
 import { Badge } from '@/components/ui/Badge'
+import { formatCost } from '@/lib/format'
 import styles from './PluginCard.module.css'
 
 interface PluginCardProps {
   plugin: PluginStatus
   totalTokens?: number
   conversations?: number
+  costUSD?: number
   href?: string
 }
 
-export function PluginCard({ plugin, totalTokens, conversations, href }: PluginCardProps) {
+export function PluginCard({ plugin, totalTokens, conversations, costUSD, href }: PluginCardProps) {
   const formatTokens = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
     if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
@@ -38,6 +40,12 @@ export function PluginCard({ plugin, totalTokens, conversations, href }: PluginC
             <div className={styles.stat}>
               <span className={styles.statValue}>{conversations}</span>
               <span className={styles.statLabel}>conversations</span>
+            </div>
+          )}
+          {costUSD !== undefined && costUSD > 0 && (
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{formatCost(costUSD)}</span>
+              <span className={styles.statLabel}>cost</span>
             </div>
           )}
         </div>

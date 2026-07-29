@@ -2,6 +2,44 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  width: 100%;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.dataPath {
+  display: block;
+  min-width: 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
+}
+
+@media (max-width: 1024px) {
+  .dataPath {
+    max-width: 30vw;
+  }
+}
+
+@media (max-width: 768px) {
+  .dataPath {
+    max-width: 20vw;
+  }
+}
+
+@media (max-width: 640px) {
+  .dataPath {
+    display: none;
+  }
 }
 
 .selectWrap {

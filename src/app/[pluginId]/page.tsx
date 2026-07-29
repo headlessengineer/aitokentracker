@@ -8,15 +8,22 @@ import { TokenBreakdown } from '@/components/dashboard/TokenBreakdown'
 import { ActivityHeatmap } from '@/components/dashboard/ActivityHeatmap'
 import { TimelineChart } from '@/components/dashboard/TimelineChart'
 import { ConversationTable } from '@/components/dashboard/ConversationTable'
-import { ModelChart } from '@/components/dashboard/ModelChart'
+import { ModelStackedChart } from '@/components/dashboard/ModelStackedChart'
 import { SubAgentChart } from '@/components/dashboard/SubAgentChart'
 import { SkillsChart } from '@/components/dashboard/SkillsChart'
 import { MCPChart } from '@/components/dashboard/MCPChart'
 import { TopToolsChart } from '@/components/dashboard/TopToolsChart'
+import { ToolCategoryDonut } from '@/components/dashboard/ToolCategoryDonut'
 import { HooksPanel } from '@/components/dashboard/HooksPanel'
+import { CostTimeline } from '@/components/dashboard/CostTimeline'
+import { ProjectTable } from '@/components/dashboard/ProjectTable'
+import { DurationHistogram, type DurationBucket } from '@/components/dashboard/DurationHistogram'
+import { DashboardGrid, type WidgetDef } from '@/components/dashboard/DashboardGrid'
+import { PluginBanner } from '@/components/dashboard/PluginBanner'
 import { ControlBar } from '@/components/ui/ControlBar'
+import { AutoRefresh } from '@/components/ui/AutoRefresh'
 import { NotificationEvaluator } from '@/components/dashboard/NotificationEvaluator'
-import { formatTokens, formatRelativeTime, formatNumber } from '@/lib/format'
+import { formatTokens, formatRelativeTime, formatNumber, formatCost } from '@/lib/format'
 import styles from './page.module.css'
 
 const VALID_DAYS = [1, 7, 15, 30, 60, 90] as const
@@ -60,8 +67,9 @@ export default async function PluginPage({
 
   if (!available) {
     return (
-      <Shell title={plugin.name}>
-        <ControlBar plugins={statuses} activePluginId={pluginId} selectedDays={days} />
+      <Shell plugins={statuses} activePluginId={pluginId} selectedDays={days}>
+        <ControlBar activePluginId={pluginId} selectedDays={days} dataPath={plugin.dataPath} />
+        <PluginBanner name={plugin.name} />
         <div className={styles.unavailable}>
           <div className={styles.unavailableIcon}>{plugin.icon}</div>
           <h1 className={styles.unavailableTitle}>{plugin.name}</h1>
@@ -85,13 +93,184 @@ export default async function PluginPage({
   const today = new Date().toISOString().split('T')[0]
   const todayTokens = summary.dailyActivity.find((d) => d.date === today)?.tokens ?? 0
 
-  return (
-    <Shell title={plugin.name}>
-      <NotificationEvaluator todayTokens={todayTokens} />
-      <ControlBar plugins={statuses} activePluginId={pluginId} selectedDays={days} />
+  const durationBuckets: DurationBucket[] = (() => {
+    const buckets: DurationBucket[] = [
+      { label: '< 5 min', count: 0 },
+      { label: '5–30 min', count: 0 },
+      { label: '30 min–2 hr', count: 0 },
+      { label: '2 hr+', count: 0 },
+    ]
+    for (const conv of summary.conversations) {
+      const mins = (new Date(conv.lastActivity).getTime() - new Date(conv.created).getTime()) / 60000
+      if (mins < 5) buckets[0].count++
+      else if (mins < 30) buckets[1].count++
+      else if (mins < 120) buckets[2].count++
+      else buckets[3].count++
+    }
+    return buckets
+  })()
 
-      {/* KPIs */}
-      <Section title={`${plugin.name} — Overview`}>
+  const hasTokens = summary.totalTokens.total > 0
+  const hasCost = summary.totalCostUSD > 0
+  const hasHooks = summary.hooks.length > 0
+  const hasProjects = summary.topProjects.length > 0
+  const hasConversations = summary.conversations.length > 0
+
+  const widgets: WidgetDef[] = hasData ? [
+    // ── row 0: token breakdown (left) + daily usage (right) ──
+    ...(hasTokens ? [{
+      id: 'tokenBreakdown',
+      defaultPos: { x: 0, y: 0, w: 4, h: 6, minW: 3, minH: 4 },
+      content: (
+        <Section title="Token breakdown">
+          <TokenBreakdown tokens={summary.totalTokens} />
+        </Section>
+      ),
+    }] : []),
+    {
+      id: 'timeline',
+      defaultPos: { x: hasTokens ? 4 : 0, y: 0, w: hasTokens ? 8 : 12, h: 6, minW: 4, minH: 3 },
+      content: (
+        <Section title={`Daily usage — last ${days} day${days === 1 ? '' : 's'}`}>
+          <TimelineChart activity={summary.dailyActivity} days={days} />
+        </Section>
+      ),
+    },
+
+    // ── cost timeline (full width, conditional) ──
+    ...(hasCost ? [{
+      id: 'costTimeline',
+      defaultPos: { x: 0, y: 100, w: 12, h: 4, minW: 4, minH: 3 },
+      content: (
+        <Section title={`Daily cost — last ${days} day${days === 1 ? '' : 's'}`}>
+          <CostTimeline dailyCost={summary.dailyCost} days={days} />
+        </Section>
+      ),
+    }] : []),
+
+    // ── activity heatmap (full width) ──
+    ...(summary.dailyActivity.length > 0 ? [{
+      id: 'heatmap',
+      defaultPos: { x: 0, y: 200, w: 12, h: 5, minW: 6, minH: 4 },
+      content: (
+        <Section title={`Activity — ${new Date().getFullYear()}`}>
+          <ActivityHeatmap activity={summary.dailyActivity} />
+        </Section>
+      ),
+    }] : []),
+
+    // ── model breakdown (full width) ──
+    ...(summary.topModels.length > 0 ? [{
+      id: 'models',
+      defaultPos: { x: 0, y: 300, w: 12, h: 6, minW: 4, minH: 4 },
+      content: (
+        <Section title="Models — token breakdown">
+          <ModelStackedChart models={summary.topModels} />
+        </Section>
+      ),
+    }] : []),
+
+    // ── sub-agents · skills · MCPs ──
+    {
+      id: 'subAgents',
+      defaultPos: { x: 0, y: 400, w: 4, h: 5, minW: 3, minH: 3 },
+      content: (
+        <Section title="Sub-agents">
+          <SubAgentChart subAgents={summary.subAgents} />
+        </Section>
+      ),
+    },
+    {
+      id: 'skills',
+      defaultPos: { x: 4, y: 400, w: 4, h: 5, minW: 3, minH: 3 },
+      content: (
+        <Section title="Skills invoked">
+          <SkillsChart skills={summary.skills} />
+        </Section>
+      ),
+    },
+    {
+      id: 'mcp',
+      defaultPos: { x: 8, y: 400, w: 4, h: 5, minW: 3, minH: 3 },
+      content: (
+        <Section title="MCP servers">
+          <MCPChart servers={summary.mcpServers} />
+        </Section>
+      ),
+    },
+
+    // ── tool category donut + top tools ──
+    {
+      id: 'toolDonut',
+      defaultPos: { x: 0, y: 500, w: 6, h: 6, minW: 3, minH: 4 },
+      content: (
+        <Section title="Tool usage by category">
+          <ToolCategoryDonut tools={summary.topTools} />
+        </Section>
+      ),
+    },
+    {
+      id: 'topTools',
+      defaultPos: { x: 6, y: 500, w: 6, h: 6, minW: 3, minH: 4 },
+      content: (
+        <Section title="Top tools by call count">
+          <TopToolsChart tools={summary.topTools} />
+        </Section>
+      ),
+    },
+
+    // ── hooks (full width, conditional) ──
+    ...(hasHooks ? [{
+      id: 'hooks',
+      defaultPos: { x: 0, y: 600, w: 12, h: 4, minW: 4, minH: 3 },
+      content: (
+        <Section title="Hooks configured">
+          <HooksPanel hooks={summary.hooks} />
+        </Section>
+      ),
+    }] : []),
+
+    // ── duration histogram + projects ──
+    {
+      id: 'durationHistogram',
+      defaultPos: { x: 0, y: 700, w: hasProjects ? 6 : 12, h: 5, minW: 3, minH: 3 },
+      content: (
+        <Section title="Session duration">
+          <DurationHistogram buckets={durationBuckets} />
+        </Section>
+      ),
+    },
+    ...(hasProjects ? [{
+      id: 'projectTable',
+      defaultPos: { x: 6, y: 700, w: 6, h: 5, minW: 3, minH: 3 },
+      content: (
+        <Section title="Top projects">
+          <ProjectTable projects={summary.topProjects} />
+        </Section>
+      ),
+    }] : []),
+
+    // ── recent conversations (full width, conditional) ──
+    ...(hasConversations ? [{
+      id: 'conversations',
+      defaultPos: { x: 0, y: 800, w: 12, h: 7, minW: 4, minH: 4 },
+      content: (
+        <Section title="Recent conversations">
+          <ConversationTable conversations={summary.conversations} limit={25} />
+        </Section>
+      ),
+    }] : []),
+  ] : []
+
+  return (
+    <Shell plugins={statuses} activePluginId={pluginId} selectedDays={days}>
+      <AutoRefresh intervalMs={5000} />
+      <NotificationEvaluator todayTokens={todayTokens} />
+      <ControlBar activePluginId={pluginId} selectedDays={days} dataPath={plugin.dataPath} />
+      <PluginBanner name={plugin.name} />
+
+      {/* KPI row */}
+      <Section>
         <div className={styles.kpiGrid}>
           <KPICard
             label="Total tokens"
@@ -114,115 +293,17 @@ export default async function PluginPage({
             value={formatRelativeTime(summary.lastActivity)}
             sub={summary.lastActivity ? new Date(summary.lastActivity).toLocaleDateString() : '—'}
           />
+          <KPICard
+            label="Total cost"
+            value={hasCost ? formatCost(summary.totalCostUSD) : 'Not tracked'}
+            sub={hasCost ? `Last ${days} day${days === 1 ? '' : 's'}` : 'No cost data available yet'}
+          />
         </div>
       </Section>
 
-      {hasData && (
-        <>
-          {/* Token breakdown + Timeline */}
-          {summary.totalTokens.total > 0 ? (
-            <div className={styles.twoCol}>
-              <div className={styles.card}>
-                <Section title="Token breakdown">
-                  <TokenBreakdown tokens={summary.totalTokens} />
-                </Section>
-              </div>
-              <div className={styles.card}>
-                <Section title={`Daily usage — last ${days} day${days === 1 ? '' : 's'}`}>
-                  <TimelineChart activity={summary.dailyActivity} days={days} />
-                </Section>
-              </div>
-            </div>
-          ) : (
-            <div className={styles.card}>
-              <Section title={`Daily usage — last ${days} day${days === 1 ? '' : 's'}`}>
-                <TimelineChart activity={summary.dailyActivity} days={days} />
-              </Section>
-            </div>
-          )}
-
-          {/* Annual heatmap */}
-          {summary.dailyActivity.length > 0 && (
-            <div className={styles.card}>
-              <Section title={`Activity — ${new Date().getFullYear()}`}>
-                <ActivityHeatmap activity={summary.dailyActivity} />
-              </Section>
-            </div>
-          )}
-
-          {/* Models */}
-          {summary.topModels.length > 0 && (
-            <div className={styles.card}>
-              <Section title="Models — token usage">
-                <ModelChart models={summary.topModels} />
-              </Section>
-            </div>
-          )}
-
-          {/* Sub-agents · Skills · MCPs — three column */}
-          <div className={styles.threeCol}>
-            <div className={styles.card}>
-              <Section title="Sub-agents">
-                <SubAgentChart subAgents={summary.subAgents} />
-              </Section>
-            </div>
-            <div className={styles.card}>
-              <Section title="Skills invoked">
-                <SkillsChart skills={summary.skills} />
-              </Section>
-            </div>
-            <div className={styles.card}>
-              <Section title="MCP servers">
-                <MCPChart servers={summary.mcpServers} />
-              </Section>
-            </div>
-          </div>
-
-          {/* Top tools + Hooks — two column */}
-          <div className={styles.twoCol}>
-            <div className={styles.card}>
-              <Section title="Top tools by call count">
-                <TopToolsChart tools={summary.topTools} />
-              </Section>
-            </div>
-            <div className={styles.card}>
-              <Section title="Hooks configured">
-                <HooksPanel hooks={summary.hooks} />
-              </Section>
-            </div>
-          </div>
-
-          {/* Top projects */}
-          {summary.topProjects.length > 0 && (
-            <div className={styles.card}>
-              <Section title="Top projects">
-                <div className={styles.barList}>
-                  {summary.topProjects.slice(0, 8).map((project) => {
-                    const pct = summary.totalTokens.total > 0
-                      ? (project.tokens / summary.totalTokens.total) * 100
-                      : 0
-                    return (
-                      <div key={project.name} className={styles.barRow}>
-                        <span className={styles.barLabel} title={project.name}>{project.name}</span>
-                        <div className={styles.barTrack}>
-                          <div className={styles.barFill} style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className={styles.barValue}>{formatTokens(project.tokens)}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Section>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Conversations */}
-      {summary.conversations.length > 0 && (
-        <Section title="Recent conversations">
-          <ConversationTable conversations={summary.conversations} limit={25} />
-        </Section>
+      {/* Draggable / resizable widget grid */}
+      {widgets.length > 0 && (
+        <DashboardGrid widgets={widgets} pluginId={pluginId} />
       )}
     </Shell>
   )

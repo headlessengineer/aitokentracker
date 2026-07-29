@@ -29,10 +29,10 @@ export function TokenBreakdown({ tokens }: TokenBreakdownProps) {
         radius: ['55%', '78%'],
         center: ['50%', '50%'],
         data: [
-          { name: 'Input', value: tokens.input, itemStyle: { color: theme.primary } },
-          { name: 'Output', value: tokens.output, itemStyle: { color: '#4d4d4d' } },
-          { name: 'Cache read', value: tokens.cacheRead, itemStyle: { color: '#b3b3b3' } },
-          { name: 'Cache write', value: tokens.cacheWrite, itemStyle: { color: '#e0e0e0' } },
+          { name: 'Input',       value: tokens.input,      itemStyle: { color: theme.primary } },
+          { name: 'Output',      value: tokens.output,     itemStyle: { color: theme.n600 } },
+          { name: 'Cache read',  value: tokens.cacheRead,  itemStyle: { color: theme.n300 } },
+          { name: 'Cache write', value: tokens.cacheWrite, itemStyle: { color: theme.n200 } },
         ].filter((d) => d.value > 0),
         label: { show: false },
         emphasis: {
@@ -43,10 +43,10 @@ export function TokenBreakdown({ tokens }: TokenBreakdownProps) {
   }), [tokens, theme])
 
   const rows: Array<{ label: string; value: number; color: string }> = [
-    { label: 'Input', value: tokens.input, color: theme.primary },
-    { label: 'Output', value: tokens.output, color: '#4d4d4d' },
-    { label: 'Cache read', value: tokens.cacheRead, color: '#b3b3b3' },
-    { label: 'Cache write', value: tokens.cacheWrite, color: '#e0e0e0' },
+    { label: 'Input',       value: tokens.input,      color: theme.primary },
+    { label: 'Output',      value: tokens.output,     color: theme.n600 },
+    { label: 'Cache read',  value: tokens.cacheRead,  color: theme.n300 },
+    { label: 'Cache write', value: tokens.cacheWrite, color: theme.n200 },
   ]
 
   return (

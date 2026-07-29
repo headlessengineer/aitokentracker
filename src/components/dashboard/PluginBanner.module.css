@@ -1,0 +1,54 @@
+.banner {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: var(--space-sm) 0;
+}
+
+/* Hidden span — same font metrics as the visible text, used only for width measurement */
+.measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: var(--font-wordmark);
+  font-weight: var(--font-wordmark-weight);
+  font-optical-sizing: auto;
+  font-variation-settings: var(--font-wordmark-variation);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.text {
+  display: block;
+  white-space: nowrap;
+  font-family: var(--font-wordmark);
+  font-weight: var(--font-wordmark-weight);
+  font-optical-sizing: auto;
+  font-variation-settings: var(--font-wordmark-variation);
+  line-height: 0.9;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  opacity: 0;
+}
+
+.visible {
+  opacity: 1;
+  transition: opacity var(--duration-fast);
+}
+
+/* Dual-color: head in foreground, tail in accent */
+.head {
+  color: var(--fg);
+}
+
+.tail {
+  color: var(--primary);
+}
+
+/* Single word: full accent */
+.full {
+  color: var(--primary);
+}

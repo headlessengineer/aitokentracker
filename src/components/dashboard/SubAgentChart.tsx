@@ -23,8 +23,8 @@ export function SubAgentChart({ subAgents }: SubAgentChartProps) {
   const theme = useChartTheme()
 
   const palette = useMemo(
-    () => [theme.primary, '#4d4d4d', '#808080', '#b3b3b3', '#e0e0e0', '#2e2e2e'],
-    [theme.primary]
+    () => [theme.primary, theme.n600, theme.fgMuted, theme.n300, theme.n200, theme.n700],
+    [theme.primary, theme.n600, theme.fgMuted, theme.n300, theme.n200, theme.n700]
   )
 
   const option = useMemo(() => ({
@@ -69,7 +69,7 @@ export function SubAgentChart({ subAgents }: SubAgentChartProps) {
             <span className={styles.label}>{formatType(s.type)}</span>
             <span className={styles.value}>{s.invocations}</span>
             <span className={styles.pct}>
-              {total > 0 ? `${Math.round((s.invocations / total) * 100)}%` : '—'}
+              {total > 0 ? `${Math.round((s.invocations / total) * 100)}%` : '—'} · {s.conversations}c
             </span>
           </div>
         ))}

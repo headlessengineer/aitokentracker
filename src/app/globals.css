@@ -1,24 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Bitcount+Grid+Double:wght@100..900&display=swap');
+
 /* ─── Tier 1: Primitives ─── */
 :root {
-  --white: #ffffff;
-  --n-50: #fafafa;
-  --n-100: #f2f2f2;
-  --n-200: #e0e0e0;
-  --n-300: #b3b3b3;
-  --n-500: #808080;
-  --n-600: #4d4d4d;
-  --n-700: #2e2e2e;
-  --n-800: #1f1f1f;
-  --n-900: #141414;
-  --n-950: #0a0a0a;
-  --black: #000000;
+  --white:        #ffffff;
+  --n-50:         #f6f6f6;
+  --n-100:        #ebebeb;
+  --n-200:        #d4d4d4;
+  --n-300:        #b6b6b6;
+  --n-400:        #989898;
+  --n-500:        #7c7c7c;
+  --n-600:        #616161;
+  --n-700:        #474747;
+  --n-800:        #303030;
+  --n-900:        #1f1f1f;
+  --n-950:        #111111;
+  --black:        #000000;
 
-  /* Brand accent — fixed, never remapped on own properties */
-  --accent-brand: #009999;
+  /* Brand accent — fixed primitive, never remapped on its own properties */
+  --accent-brand: #008383;
 
   /* ─── Tier 2: Semantic (light default) ─── */
-  --primary: #009999;
-  --on-primary: #ffffff;
+  --primary:    var(--accent-brand);
+  --on-primary: var(--white);
 
   --bg: var(--n-50);
   --surface: var(--n-50);
@@ -82,7 +85,9 @@
   --font-weight-black:    900;
 
   /* ─── Font families ─── */
-  --font-wordmark: var(--font-bitcount, 'Bitcount Grid Double', sans-serif);
+  --font-wordmark:           "Bitcount Grid Double", system-ui;
+  --font-wordmark-weight:    300;
+  --font-wordmark-variation: "slnt" 0, "CRSV" 0.5, "ELSH" 0, "ELXP" 0;
 
   /* ─── Letter-spacing ─── */
   --tracking-normal:  0.04em;
@@ -102,12 +107,12 @@
   --opacity-subtle: 0.8;
 
   /* ─── Primary tint (accent at low opacity — active/badge backgrounds) ─── */
-  --primary-tint:       rgba(0, 153, 153, 0.1);
-  --primary-tint-hover: rgba(0, 153, 153, 0.15);
+  --primary-tint:       color-mix(in srgb, var(--primary) 10%, transparent);
+  --primary-tint-hover: color-mix(in srgb, var(--primary) 15%, transparent);
 
   /* ─── Shadows ─── */
-  --shadow-sm:         0 1px 4px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 4px 24px rgba(0, 153, 153, 0.18);
+  --shadow-sm:         0 1px 4px color-mix(in srgb, var(--black) 8%, transparent);
+  --shadow-card-hover: 0 4px 24px color-mix(in srgb, var(--primary) 18%, transparent);
 
   /* ─── Component sizes ─── */
   --size-icon-btn: 36px;

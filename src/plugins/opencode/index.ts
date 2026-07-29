@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
 import { emptyPluginData, buildPluginData, globFiles, pathExists, convStatus } from '../core/collect'
 
@@ -27,8 +27,9 @@ interface OpenCodeMsg {
   path?: { root?: string }
 }
 
-function readFromSqlite(dbPath: string, cutoff: Date): ConversationSummary[] {
+async function readFromSqlite(dbPath: string, cutoff: Date): Promise<ConversationSummary[]> {
   if (!fsSync.existsSync(dbPath)) return []
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(dbPath, { readOnly: true })
@@ -157,7 +158,7 @@ const OPENCODE_PLUGIN: TokenPlugin = {
 
     // Prefer SQLite if it exists
     if (fsSync.existsSync(DB_PATH)) {
-      const conversations = readFromSqlite(DB_PATH, cutoff)
+      const conversations = await readFromSqlite(DB_PATH, cutoff)
       if (conversations.length > 0) return buildPluginData('opencode', conversations, options)
     }
 

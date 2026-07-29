@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
 import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
 
@@ -24,8 +24,9 @@ interface MiCodeMsg {
   path?: { root?: string }
 }
 
-function readMiCodeDb(dbPath: string, cutoff: Date): ConversationSummary[] {
+async function readMiCodeDb(dbPath: string, cutoff: Date): Promise<ConversationSummary[]> {
   if (!fsSync.existsSync(dbPath)) return []
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(dbPath, { readOnly: true })
@@ -114,7 +115,7 @@ const MICODE_PLUGIN: TokenPlugin = {
 
     const conversations: ConversationSummary[] = []
     for (const dbPath of dbFiles) {
-      conversations.push(...readMiCodeDb(dbPath, cutoff))
+      conversations.push(...await readMiCodeDb(dbPath, cutoff))
     }
 
     if (conversations.length === 0) return emptyPluginData('micode')

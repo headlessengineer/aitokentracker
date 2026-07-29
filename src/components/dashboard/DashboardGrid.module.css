@@ -1,0 +1,154 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  position: sticky;
+  top: var(--topbar-height, 64px);
+  z-index: var(--z-raised, 10);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+  background: var(--bg);
+}
+
+.editBtn {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--primary);
+  background: var(--primary-tint);
+  color: var(--primary);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.editBtn:hover {
+  background: var(--primary-tint-hover);
+}
+
+.editActive,
+.editActive:hover {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+
+.resetBtn {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+
+.resetBtn:hover {
+  color: var(--fg);
+  border-color: var(--fg-secondary);
+}
+
+/* ── Grid ── */
+.grid {
+  width: 100%;
+}
+
+/* ── Card (grid item) ── */
+.card {
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--duration-fast);
+}
+
+.cardEdit {
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.cardEdit:hover {
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+/* ── Drag handle ── */
+.dragHandle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 8px var(--space-lg);
+  background: var(--elevated);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dragDots {
+  color: var(--fg-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dragHint {
+  font-size: var(--font-size-2xs);
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Card content ── */
+.cardContent {
+  padding: var(--space-lg);
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── react-grid-layout overrides ── */
+:global(.react-grid-item.react-grid-placeholder) {
+  background: var(--primary) !important;
+  opacity: 0.12 !important;
+  border-radius: var(--radius-lg);
+}
+
+:global(.react-resizable-handle) {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  bottom: 6px;
+  right: 6px;
+  cursor: se-resize;
+}
+
+:global(.react-resizable-handle::after) {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+}
+
+:global(.react-resizable-handle:hover::after) {
+  border-color: var(--primary);
+}

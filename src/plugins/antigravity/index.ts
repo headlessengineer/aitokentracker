@@ -2,7 +2,7 @@ import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type {
   TokenPlugin,
   PluginData,
@@ -211,9 +211,10 @@ interface ConvData {
   userMessageCount: number
 }
 
-function readConversationDB(uuid: string): ConvData | null {
+async function readConversationDB(uuid: string): Promise<ConvData | null> {
   const dbPath = path.join(CONVERSATIONS_DIR, `${uuid}.db`)
   if (!fsSync.existsSync(dbPath)) return null
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(dbPath, { readOnly: true })
@@ -303,7 +304,7 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
     let totalOutput = 0
 
     for (const uuid of uuids) {
-      const conv = readConversationDB(uuid)
+      const conv = await readConversationDB(uuid)
       if (!conv) continue
       if (conv.lastActivity < cutoff) continue
 
@@ -312,9 +313,11 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
 
       const dateKey = conv.lastActivity.toISOString().slice(0, 10)
       const dayTotal = conv.inputTokens + conv.outputTokens
-      const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, conversations: 0 }
+      const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, conversations: 0 }
       day.conversations += 1
       day.tokens += dayTotal
+      day.input += conv.inputTokens
+      day.output += conv.outputTokens
       dailyMap.set(dateKey, day)
 
       const toolCounts = await readTranscriptToolCalls(uuid)
@@ -365,11 +368,20 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
         ? new Date(Math.max(...conversations.map((c) => c.lastActivity.getTime())))
         : null
 
-    const modelMap = new Map<string, { tokens: number; conversations: number }>()
+    const modelMap = new Map<string, { tokens: number; tokensDetail: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number }; conversations: number }>()
     for (const c of conversations) {
-      const existing = modelMap.get(c.model) ?? { tokens: 0, conversations: 0 }
+      const existing = modelMap.get(c.model) ?? {
+        tokens: 0,
+        tokensDetail: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        conversations: 0,
+      }
       existing.conversations += 1
       existing.tokens += c.tokens.total
+      existing.tokensDetail.input += c.tokens.input
+      existing.tokensDetail.output += c.tokens.output
+      existing.tokensDetail.cacheRead += c.tokens.cacheRead
+      existing.tokensDetail.cacheWrite += c.tokens.cacheWrite
+      existing.tokensDetail.total += c.tokens.total
       modelMap.set(c.model, existing)
     }
     const topModels = [...modelMap.entries()]
@@ -386,6 +398,7 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
           cacheWrite: 0,
           total: totalInput + totalOutput,
         },
+        totalCostUSD: 0,
         totalConversations: conversations.length,
         activeConversations: conversations.filter((c) => c.status === 'active').length,
         topProjects: [...projectMap.values()]
@@ -393,6 +406,7 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
           .slice(0, 10),
         topModels,
         dailyActivity: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+        dailyCost: [],
         lastActivity,
         conversations: conversations
           .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())

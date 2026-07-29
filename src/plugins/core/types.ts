@@ -20,6 +20,10 @@ export interface ConversationSummary {
 export interface DailyActivity {
   date: string  // ISO YYYY-MM-DD
   tokens: number
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
   conversations: number
 }
 
@@ -33,7 +37,13 @@ export interface ProjectStats {
 export interface ModelStats {
   model: string
   tokens: number
+  tokensDetail: TokenUsage
   conversations: number
+}
+
+export interface DailyCost {
+  date: string
+  costUSD: number
 }
 
 // ─── Tool / Agent / Skill / MCP breakdown ───
@@ -73,11 +83,13 @@ export interface HookStats {
 
 export interface PluginSummary {
   totalTokens: TokenUsage
+  totalCostUSD: number
   totalConversations: number
   activeConversations: number
   topProjects: ProjectStats[]
   topModels: ModelStats[]
   dailyActivity: DailyActivity[]
+  dailyCost: DailyCost[]
   lastActivity: Date | null
   conversations: ConversationSummary[]
   // extended breakdown

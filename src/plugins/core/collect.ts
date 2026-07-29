@@ -21,11 +21,13 @@ export function emptyPluginData(pluginId: string): PluginData {
     pluginId,
     summary: {
       totalTokens: emptyUsage(),
+      totalCostUSD: 0,
       totalConversations: 0,
       activeConversations: 0,
       topProjects: [],
       topModels: [],
       dailyActivity: [],
+      dailyCost: [],
       lastActivity: null,
       conversations: [],
       topTools: [],
@@ -64,8 +66,12 @@ export function buildPluginData(
     totalTokens.total += c.tokens.total
 
     const dateKey = c.lastActivity.toISOString().slice(0, 10)
-    const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, conversations: 0 }
+    const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, conversations: 0 }
     day.tokens += c.tokens.total
+    day.input += c.tokens.input
+    day.output += c.tokens.output
+    day.cacheRead += c.tokens.cacheRead
+    day.cacheWrite += c.tokens.cacheWrite
     day.conversations += 1
     dailyMap.set(dateKey, day)
 
@@ -87,9 +93,19 @@ export function buildPluginData(
       const m = modelMap.get(c.model)
       if (m) {
         m.tokens += c.tokens.total
+        m.tokensDetail.input += c.tokens.input
+        m.tokensDetail.output += c.tokens.output
+        m.tokensDetail.cacheRead += c.tokens.cacheRead
+        m.tokensDetail.cacheWrite += c.tokens.cacheWrite
+        m.tokensDetail.total += c.tokens.total
         m.conversations += 1
       } else {
-        modelMap.set(c.model, { model: c.model, tokens: c.tokens.total, conversations: 1 })
+        modelMap.set(c.model, {
+          model: c.model,
+          tokens: c.tokens.total,
+          tokensDetail: { ...c.tokens },
+          conversations: 1,
+        })
       }
     }
   }
@@ -101,11 +117,13 @@ export function buildPluginData(
     pluginId,
     summary: {
       totalTokens,
+      totalCostUSD: 0,
       totalConversations: conversations.length,
       activeConversations: conversations.filter((c) => c.status === 'active').length,
       topProjects: [...projectMap.values()].sort((a, b) => b.tokens - a.tokens).slice(0, 10),
       topModels: [...modelMap.values()].sort((a, b) => b.tokens - a.tokens),
       dailyActivity: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+      dailyCost: [],
       lastActivity,
       conversations: sorted.slice(0, limit),
       topTools: [],

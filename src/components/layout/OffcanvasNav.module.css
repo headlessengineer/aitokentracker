@@ -1,0 +1,198 @@
+/* ─── Hamburger trigger ─── */
+.hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.hamburger:hover {
+  background: var(--elevated);
+}
+
+.hamburger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.hamburger svg {
+  width: var(--size-icon-md);
+  height: var(--size-icon-md);
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ─── Backdrop ─── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--black);
+  opacity: 0;
+  z-index: 99;
+  pointer-events: none;
+  transition: opacity var(--duration-base) ease-out;
+}
+
+.backdropOpen {
+  opacity: var(--opacity-muted);
+  pointer-events: auto;
+}
+
+/* ─── Panel ─── */
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 300px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: var(--z-drawer);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  transform: translateX(100%);
+  /* keeps panel out of tab order and AT tree when closed */
+  visibility: hidden;
+  transition: transform var(--duration-slow) var(--ease-spring),
+    visibility 0s var(--duration-slow);
+}
+
+.panelOpen {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform var(--duration-slow) var(--ease-spring), visibility 0s;
+}
+
+@media (max-width: 480px) {
+  .panel {
+    width: 100vw;
+    border-left: none;
+  }
+}
+
+/* ─── Close button ─── */
+.closeButton {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.closeButton:hover {
+  background: var(--elevated);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.closeButton svg {
+  width: var(--size-icon-md);
+  height: var(--size-icon-md);
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ─── Scrollable content area ─── */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  overflow-y: auto;
+  padding-top: var(--space-md);
+  /* hide scrollbar visually while keeping it functional */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ─── Nav list ─── */
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-normal);
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+  text-decoration: none;
+  transition: color var(--duration-fast) ease, background var(--duration-fast) ease;
+}
+
+.navLink:hover {
+  color: var(--fg);
+  background: var(--elevated);
+}
+
+.navLinkActive {
+  color: var(--primary);
+  background: var(--primary-tint);
+}
+
+.navLinkActive:hover {
+  color: var(--primary);
+  background: var(--primary-tint-hover);
+}
+
+.navLinkUnavailable {
+  opacity: var(--opacity-dim);
+}
+
+.navIcon {
+  font-size: var(--font-size-xs);
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.navName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navBadge {
+  font-size: var(--font-size-2xs);
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .backdrop {
+    transition: none;
+  }
+}

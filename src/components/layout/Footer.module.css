@@ -1,0 +1,69 @@
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--elevated);
+  margin-top: auto;
+}
+
+.inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.copy {
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+  letter-spacing: var(--tracking-normal);
+}
+
+/* ── "made with <brain> HEADLESSENGINEER" — floated right ── */
+.madeBy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: opacity var(--duration-fast);
+}
+
+.madeBy:hover {
+  opacity: 0.7;
+}
+
+.brainIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+  position: relative;
+  top: 0px;
+}
+
+.heLogo {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-family: var(--font-wordmark);
+  font-size: 13px;
+  font-weight: var(--font-wordmark-weight);
+  font-optical-sizing: auto;
+  font-variation-settings: var(--font-wordmark-variation);
+  letter-spacing: var(--tracking-normal);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.heHead {
+  color: var(--fg-muted);
+}
+
+.heTail {
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .inner {
+    padding: var(--space-md);
+  }
+}
+

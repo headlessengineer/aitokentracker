@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import type { PluginStatus } from '@/plugins/core/types'
 import styles from './ControlBar.module.css'
 
 const RANGES: Array<{ label: string; days: number }> = [
@@ -14,19 +13,14 @@ const RANGES: Array<{ label: string; days: number }> = [
 ]
 
 interface ControlBarProps {
-  plugins: PluginStatus[]
   activePluginId?: string
   selectedDays: number
+  dataPath?: string
+  action?: React.ReactNode
 }
 
-export function ControlBar({ plugins, activePluginId, selectedDays }: ControlBarProps) {
+export function ControlBar({ activePluginId, selectedDays, dataPath, action }: ControlBarProps) {
   const router = useRouter()
-
-  function onToolChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value
-    const path = val === '__overview__' ? '/' : `/${val}`
-    router.push(`${path}?days=${selectedDays}`)
-  }
 
   function onDaysChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const path = activePluginId ? `/${activePluginId}` : '/'
@@ -35,21 +29,6 @@ export function ControlBar({ plugins, activePluginId, selectedDays }: ControlBar
 
   return (
     <div className={styles.root}>
-      <div className={styles.selectWrap}>
-        <select
-          className={styles.select}
-          value={activePluginId ?? '__overview__'}
-          onChange={onToolChange}
-          aria-label="Select view"
-        >
-          <option value="__overview__">▦  Overview</option>
-          {plugins.map((p) => (
-            <option key={p.id} value={p.id} disabled={!p.available}>
-              {p.icon}  {p.name}{!p.available ? '  —  not configured' : ''}
-            </option>
-          ))}
-        </select>
-      </div>
       <div className={styles.selectWrap}>
         <select
           className={styles.select}
@@ -64,6 +43,16 @@ export function ControlBar({ plugins, activePluginId, selectedDays }: ControlBar
           ))}
         </select>
       </div>
+      {(action || dataPath) && (
+        <div className={styles.right}>
+          {action}
+          {dataPath && (
+            <span className={styles.dataPath} title={dataPath}>
+              {dataPath}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

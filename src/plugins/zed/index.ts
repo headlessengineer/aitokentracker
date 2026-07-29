@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fsSync from 'fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
 import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
 
@@ -47,8 +47,9 @@ function sumUsage(usageMap: Record<string, ZedTokenUsage> | ZedTokenUsage[]): Ze
   return { input_tokens: input, output_tokens: output, cache_creation_input_tokens: cacheWrite, cache_read_input_tokens: cacheRead, count }
 }
 
-function readZed(dbPath: string, cutoff: Date): ConversationSummary[] {
+async function readZed(dbPath: string, cutoff: Date): Promise<ConversationSummary[]> {
   if (!fsSync.existsSync(dbPath)) return []
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(dbPath, { readOnly: true })
@@ -149,7 +150,7 @@ const ZED_PLUGIN: TokenPlugin = {
     const days = options?.days ?? 30
     const cutoff = new Date(Date.now() - days * 86_400_000)
     const dbPath = fsSync.existsSync(LINUX_DB) ? LINUX_DB : MACOS_DB
-    const conversations = readZed(dbPath, cutoff)
+    const conversations = await readZed(dbPath, cutoff)
     if (conversations.length === 0) return emptyPluginData('zed')
     return buildPluginData('zed', conversations, options)
   },

@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fsSync from 'fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
 import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
 
@@ -24,8 +24,9 @@ interface KiloMsg {
   path?: { root?: string }
 }
 
-function readKilo(cutoff: Date): ConversationSummary[] {
+async function readKilo(cutoff: Date): Promise<ConversationSummary[]> {
   if (!fsSync.existsSync(DB_PATH)) return []
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(DB_PATH, { readOnly: true })
@@ -102,7 +103,7 @@ const KILO_PLUGIN: TokenPlugin = {
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
     const cutoff = new Date(Date.now() - days * 86_400_000)
-    const conversations = readKilo(cutoff)
+    const conversations = await readKilo(cutoff)
     if (conversations.length === 0) return emptyPluginData('kilo')
     return buildPluginData('kilo', conversations, options)
   },

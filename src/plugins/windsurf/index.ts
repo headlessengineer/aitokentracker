@@ -16,11 +16,13 @@ const WINDSURF_PLUGIN: TokenPlugin = {
       pluginId: 'windsurf',
       summary: {
         totalTokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        totalCostUSD: 0,
         totalConversations: 0,
         activeConversations: 0,
         topProjects: [],
         topModels: [],
         dailyActivity: [],
+        dailyCost: [],
         lastActivity: null,
         conversations: [],
         topTools: [],

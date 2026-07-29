@@ -10,13 +10,8 @@ interface TopToolsChartProps {
   tools: ToolCallStats[]
 }
 
-const CATEGORY_COLOR: Record<ToolCategory, string> = {
-  core:  '#4d4d4d',
-  agent: '#009999',
-  skill: '#808080',
-  mcp:   '#b3b3b3',
-  other: '#e0e0e0',
-}
+// agent is always theme.primary — the rest are resolved inside the component from theme tokens
+const CATEGORY_COLOR_KEYS = ['core', 'agent', 'skill', 'mcp', 'other'] as const
 
 const CATEGORY_LABEL: Record<ToolCategory, string> = {
   core:  'Core',
@@ -30,9 +25,15 @@ export function TopToolsChart({ tools }: TopToolsChartProps) {
   const sorted = [...tools].sort((a, b) => b.callCount - a.callCount).slice(0, 15)
   const theme = useChartTheme()
 
-  const categoryColor = useMemo(
-    () => ({ ...CATEGORY_COLOR, agent: theme.primary }),
-    [theme.primary]
+  const categoryColor = useMemo<Record<ToolCategory, string>>(
+    () => ({
+      agent: theme.primary,
+      core:  theme.n600,
+      skill: theme.fgMuted,
+      mcp:   theme.n300,
+      other: theme.n200,
+    }),
+    [theme.primary, theme.n600, theme.fgMuted, theme.n300, theme.n200]
   )
 
   const option = useMemo(() => ({
@@ -92,7 +93,7 @@ export function TopToolsChart({ tools }: TopToolsChartProps) {
     <div className={styles.root}>
       <EChart option={option} style={{ width: '100%', height: Math.max(sorted.length * 32, 120) }} />
       <div className={styles.legend}>
-        {(Object.entries(categoryColor) as Array<[ToolCategory, string]>).map(([cat, color]) => (
+        {(CATEGORY_COLOR_KEYS.map((cat) => [cat, categoryColor[cat]]) as Array<[ToolCategory, string]>).map(([cat, color]) => (
           <div key={cat} className={styles.legendItem}>
             <span className={styles.swatch} style={{ background: color }} />
             <span>{CATEGORY_LABEL[cat]}</span>

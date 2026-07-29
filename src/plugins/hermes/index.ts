@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fsSync from 'fs'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
 import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
 
@@ -19,8 +19,9 @@ interface HermesRow {
   cache_write_tokens: unknown
 }
 
-function readHermes(cutoff: Date): ConversationSummary[] {
+async function readHermes(cutoff: Date): Promise<ConversationSummary[]> {
   if (!fsSync.existsSync(DB_PATH)) return []
+  const { DatabaseSync } = await import('node:sqlite')
   let db: DatabaseSync | null = null
   try {
     db = new DatabaseSync(DB_PATH, { readOnly: true })
@@ -77,7 +78,7 @@ const HERMES_PLUGIN: TokenPlugin = {
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
     const cutoff = new Date(Date.now() - days * 86_400_000)
-    const conversations = readHermes(cutoff)
+    const conversations = await readHermes(cutoff)
     return buildPluginData('hermes', conversations, options)
   },
 }

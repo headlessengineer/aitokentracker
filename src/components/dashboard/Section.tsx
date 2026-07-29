@@ -1,7 +1,7 @@
 import styles from './Section.module.css'
 
 interface SectionProps {
-  title: string
+  title?: string
   children: React.ReactNode
   action?: React.ReactNode
 }
@@ -9,10 +9,12 @@ interface SectionProps {
 export function Section({ title, children, action }: SectionProps) {
   return (
     <section className={styles.section}>
-      <div className={styles.header}>
-        <h2 className={styles.title}>{title}</h2>
-        {action && <div>{action}</div>}
-      </div>
+      {(title || action) && (
+        <div className={styles.header}>
+          {title && <h2 className={styles.title}>{title}</h2>}
+          {action && <div>{action}</div>}
+        </div>
+      )}
       {children}
     </section>
   )
