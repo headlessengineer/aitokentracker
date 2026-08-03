@@ -106,7 +106,7 @@ Slide layouts with CSS structures and animation classes.
 
 | Treatment | Implementation | When to Use |
 |---|---|---|
-| `accent-glow` | `box-shadow: 0 0 40px rgba(0,153,153,0.25)` | Title slides, CTAs |
+| `accent-glow` | `box-shadow: 0 0 40px rgba(0, 131, 131,0.25)` | Title slides, CTAs |
 | `surface-fill` | `background: var(--surface)` | Section differentiation (no borders) |
 | `icon-top` | Icon above heading in card | Feature grids |
 | `screenshot-shadow` | `box-shadow: 0 8px 40px rgba(0,0,0,0.5)` | Product screenshots |

@@ -11,9 +11,9 @@ Pick the nearest step; never introduce intermediate greys.
 
 | Token | Default | Use |
 |---|---|---|
-| `primary` | `#009999` | The active accent — fills, icons, large bold text |
+| `primary` | `#008383` | The active accent — fills, icons, large bold text |
 | `on-primary` | `#ffffff` | Label on an accent fill |
-| `accent-brand` | `#009999` | Our fixed brand accent (logo, our own properties only) |
+| `accent-brand` | `#008383` | Our fixed brand accent (logo, our own properties only) |
 
 **Where accent may appear:** logo, one primary action per view, links, key
 figures/metrics, focus rings, active nav item, at most one emphasis badge.
@@ -28,7 +28,7 @@ The accent is fill/icon/large-bold only — never small body text.
 | `fg` on `bg` | 19.8:1 AAA | 19.8:1 AAA |
 | `fg-secondary` on `bg` | 8.5:1 AAA | 9.4:1 AAA |
 | `fg-muted` on `bg` | 4.0:1 large only | 5.0:1 AA |
-| `primary` (#009999) on `bg` | 3.5:1 large only | 5.7:1 AA / large |
+| `primary` (#008383) on `bg` | 3.5:1 large only | 5.7:1 AA / large |
 | `on-primary` (white) on accent fill | 3.55:1 ⚠ | 3.55:1 ⚠ |
 
 Body text uses `fg`; secondary uses `fg-secondary` (both AAA). `fg-muted` is
@@ -37,7 +37,7 @@ large/non-critical captions only. Accent is large/bold/fill only.
 ### Known Trade-offs
 
 **`on-primary` (button label):** Primary buttons use `color: var(--white)` (white
-on #009999 = 3.55:1). Passes the 3:1 UI component criterion but not 4.5:1 AA for
+on #008383 = 3.55:1). Passes the 3:1 UI component criterion but not 4.5:1 AA for
 text. Accepted: visual consistency across themes — `var(--bg)` in dark mode
 resolves to near-black on teal, which was visually broken.
 
@@ -63,7 +63,7 @@ The neutral ramp and all neutral semantics are fixed — only the **accent slot*
    body text or large fills.
 
 **Our logo in client contexts:** renders **monochrome** (`fg`) in-product, or in
-`accent-brand` (#009999) only in an explicit "built by headlessengineer" credit —
+`accent-brand` (#008383) only in an explicit "built by headlessengineer" credit —
 never recolored to the client's accent.
 
 ## Code & Syntax Highlighting

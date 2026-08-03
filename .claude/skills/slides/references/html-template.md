@@ -28,7 +28,7 @@ that script once per deck. No inline scripts, no nav button HTML.
             --n-900:  #141414;
             --n-950:  #0a0a0a;
             --black:  #000000;
-            --accent-brand: #009999;
+            --accent-brand: #008383;
         }
 
         /* ── Tier 2: semantics — LIGHT (default, matches globals.css) */
@@ -286,8 +286,8 @@ new Chart(document.getElementById('chart'), {
         datasets: [{
             label: 'MRR ($K)',
             data: [5, 12, 28, 45],
-            borderColor: '#009999',
-            backgroundColor: 'rgba(0,153,153,0.1)',
+            borderColor: '#008383',
+            backgroundColor: 'rgba(0, 131, 131,0.1)',
             borderWidth: 2.5,
             fill: true,
             tension: 0.3
@@ -368,5 +368,5 @@ Use only grayscale or duotone-treated photographs — see `design-system/referen
 | `--fg` | `#ffffff` | Primary text |
 | `--fg-secondary` | `#b3b3b3` | Secondary text, labels |
 | `--fg-muted` | `#808080` | Muted text, footer labels (constant in both themes) |
-| `--primary` | `#009999` | Accent: CTAs, highlights, chart lines, progress bar |
+| `--primary` | `#008383` | Accent: CTAs, highlights, chart lines, progress bar |
 | `--on-primary` | `#ffffff` | Text on `--primary` fills |

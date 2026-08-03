@@ -39,13 +39,13 @@ Given a client's brand hex `$COLOR`:
 
 | Element | Our properties | Client's product |
 |---|---|---|
-| `--primary` | `#009999` | Client's brand color |
+| `--primary` | `#008383` | Client's brand color |
 | `--on-primary` | `#ffffff` | Black or white — whichever clears 3:1 |
-| `--accent-brand` | `#009999` (fixed) | `#009999` (fixed — our brand) |
+| `--accent-brand` | `#008383` (fixed) | `#008383` (fixed — our brand) |
 | Neutral ramp | Unchanged | Unchanged |
 | All neutral semantics | Unchanged | Unchanged |
-| Syntax highlight color | `#009999` | Client's `primary` |
-| Card hover glow | `rgba(0,153,153,0.18)` | `rgba(r,g,b,0.18)` of client's color |
+| Syntax highlight color | `#008383` | Client's `primary` |
+| Card hover glow | `rgba(0, 131, 131,0.18)` | `rgba(r,g,b,0.18)` of client's color |
 
 ---
 

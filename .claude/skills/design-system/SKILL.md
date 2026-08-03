@@ -10,7 +10,7 @@ metadata:
 # headlessengineer — Design System
 
 Monochrome + one swappable accent. A fixed neutral ramp (black, white, greys) that
-never changes, plus a single accent slot: `#009999` on our own properties, client's
+never changes, plus a single accent slot: `#008383` on our own properties, client's
 color on client work. Equal light/dark pair. AAA text. No raw values in components.
 
 For brand narrative (voice, positioning, logo rules), see the `brand` skill.
@@ -81,7 +81,7 @@ These are hard rules. Every component and page must satisfy all of them.
 16. **Always-dark sections** use `background-color: var(--n-950)` (fixed primitive) +
     a `:global(body:not(.dark-mode))` local token remap. Headings on always-dark
     sections must declare `color: var(--fg)` explicitly.
-17. **Card hover** is teal ambient glow: `box-shadow: 0 4px 24px rgba(0,153,153,0.18)`
+17. **Card hover** is teal ambient glow: `box-shadow: 0 4px 24px rgba(0, 131, 131,0.18)`
     + `translateY(-2px)`. No background-only surface shift.
 
 ---
@@ -90,7 +90,7 @@ These are hard rules. Every component and page must satisfy all of them.
 
 | Category | Key tokens |
 |---|---|
-| Accent | `primary` (#009999), `on-primary` (#fff), `accent-brand` (#009999) |
+| Accent | `primary` (#008383), `on-primary` (#fff), `accent-brand` (#008383) |
 | Text (light) | `fg` #0a0a0a, `fg-secondary` #4d4d4d, `fg-muted` #808080 |
 | Surface (light) | `bg` #fafafa, `surface` #fafafa, `surface-card` #fff, `elevated` #f2f2f2 |
 | Text (dark) | `fg` #fff, `fg-secondary` #b3b3b3, `fg-muted` #808080 |

@@ -21,7 +21,7 @@ colors:
   black: "#000000"
 
   # Tier 1 Primitive — brand accent (fixed; used on our own properties)
-  accent-brand: "#009999"
+  accent-brand: "#008383"
 
   # Tier 2 Semantics — accent SLOT
   # Defaults to brand accent. On client work, remap `primary` to the
@@ -205,7 +205,7 @@ components:
     backgroundColor: "{colors.surface-card}"
     rounded: "{rounded.lg}"
     padding: 24px
-    hoverBoxShadow: "0 4px 24px rgba(0,153,153,0.18)"
+    hoverBoxShadow: "0 4px 24px rgba(0, 131, 131,0.18)"
     hoverTransform: "translateY(-2px)"
   input:
     backgroundColor: "{colors.surface}"
@@ -241,5 +241,5 @@ components:
 | `fg` | `#0a0a0a` | `#ffffff` |
 | `fg-secondary` | `#4d4d4d` | `#b3b3b3` |
 | `fg-muted` | `#808080` | `#808080` |
-| `primary` | `#009999` | `#009999` |
+| `primary` | `#008383` | `#008383` |
 | `on-primary` | `#ffffff` | `#ffffff` |

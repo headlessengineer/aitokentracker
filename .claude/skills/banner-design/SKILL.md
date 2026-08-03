@@ -1,6 +1,6 @@
 ---
 name: banner-design
-description: Design banners for social media, website heroes, and print — aligned to headlessengineer's monochrome+accent system. Neutral foundation, one teal accent (#009999), Inter typography. Art direction styles constrained to brand-compatible approaches. Use for social covers, OG images, hero sections, ad banners.
+description: Design banners for social media, website heroes, and print — aligned to headlessengineer's monochrome+accent system. Neutral foundation, one teal accent (#008383), Inter typography. Art direction styles constrained to brand-compatible approaches. Use for social covers, OG images, hero sections, ad banners.
 argument-hint: "[platform] [style] [dimensions]"
 metadata:
   author: headlessengineer
@@ -26,7 +26,7 @@ Brand source of truth: `.claude/skills/brand/SKILL.md` and `.claude/skills/desig
 
 ## Design Constraints (Non-Negotiable)
 
-1. **Colors:** neutral ramp only (`#ffffff` → `#000000`) + one accent `#009999`. No other hues.
+1. **Colors:** neutral ramp only (`#ffffff` → `#000000`) + one accent `#008383`. No other hues.
 2. **Typography:** Inter for all text. No other typeface except wordmark (Bitcount Grid Double, uppercase only).
 3. **Accent rationed:** headline accent, one CTA, one badge, the wordmark's ENGINEER half — never background fills.
 4. **Dark default:** social/OG/ad banners default to dark theme (`n-950` background).
@@ -70,7 +70,7 @@ Pick 2–3 complementary directions for the same brief.
   --surface: #141414;  /* n-900 */
   --fg: #ffffff;
   --fg-secondary: #b3b3b3;  /* n-300 */
-  --primary: #009999;
+  --primary: #008383;
   --on-primary: #ffffff;
   --border: #2e2e2e;   /* n-700 — structural use only */
 

@@ -28,7 +28,7 @@ high contrast editorial style, no background clutter
 
 ```
 [Subject] photograph with tritone color treatment:
-shadows map to near-black (#0a0a0a), midtones map to teal (#009999),
+shadows map to near-black (#0a0a0a), midtones map to teal (#008383),
 highlights map to white (#ffffff). Photographic quality, sharp, editorial.
 No other colors present.
 ```

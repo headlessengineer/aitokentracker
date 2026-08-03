@@ -109,7 +109,7 @@ built into the visual system:
 - **The neutral foundation never changes.** Black, white, and a fixed grey ramp
   carry all structure and text. This is engineering rigor: constant, disciplined.
 - **One accent adapts.** A single accent color is the only hue. On our own
-  properties it's teal (`#009999`). On client work, the accent adopts the client's
+  properties it's teal (`#008383`). On client work, the accent adopts the client's
   brand color while everything else stays identical. The body stays; the head swaps.
 
 This is not decoration — it's the brand argument expressed as a design rule.
@@ -134,7 +134,7 @@ See `references/logo-wordmark.md` for the full spec. Summary:
 One accent over a strict neutral ramp — disciplined and "headless."
 
 - **Foundation (never changes):** pure black, white, and greys.
-- **Accent (adapts):** one hue. Ours is teal `#009999`; client work adopts the
+- **Accent (adapts):** one hue. Ours is teal `#008383`; client work adopts the
   client's color in the same slot.
 - **Rationed:** the accent punctuates — primary actions, the logo, links, key
   figures, focus, active state, one emphasis badge. Never body text, large fills,
@@ -165,7 +165,7 @@ This restraint is itself on-brand: a headless system serves the front end.
 |---|---|
 | Name | `headlessengineer` (text) / `HEADLESSENGINEER` (logo) |
 | Vision | tech solutions for business problems |
-| Accent | `#009999` (ours) / client's color on client work |
+| Accent | `#008383` (ours) / client's color on client work |
 | Foundation | black + white + neutral grey ramp (never changes) |
 | Wordmark | HEADLESS (fg) + ENGINEER (accent), Bitcount Grid Double |
 | Fonts | Bitcount Grid Double (wordmark) · Inter (all UI) · JetBrains Mono (code) |

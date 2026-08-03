@@ -307,7 +307,7 @@ Decks support light and dark mode via `body.dark-mode`. The shared runtime
     --fg:           #0a0a0a;   /* n-950 */
     --fg-secondary: #4d4d4d;   /* n-600 */
     --fg-muted:     #808080;   /* n-500 — constant */
-    --primary:      #009999;
+    --primary:      #008383;
     --on-primary:   #ffffff;
 }
 
@@ -460,13 +460,13 @@ body.scroll-mode .slide {
 | `--fg` | `#0a0a0a` | `#ffffff` | Primary text |
 | `--fg-secondary` | `#4d4d4d` | `#b3b3b3` | Secondary text |
 | `--fg-muted` | `#808080` | `#808080` | Muted — constant |
-| `--primary` | `#009999` | `#009999` | Accent — constant |
+| `--primary` | `#008383` | `#008383` | Accent — constant |
 
 ---
 
 ## Design Invariants (reminder)
 
-1. **One accent** — `#009999` only. No second hue.
+1. **One accent** — `#008383` only. No second hue.
 2. **No borders** — surfaces by fill only; never strokes. `--border` only in tables and offcanvas footer.
 3. **Inter** everywhere except wordmark (Bitcount Grid Double, weight 400) and code (JetBrains Mono).
 4. **Wordmark weight is always 400** — the lightest available weight for Bitcount Grid Double.

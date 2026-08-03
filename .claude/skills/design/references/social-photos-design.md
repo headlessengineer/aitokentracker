@@ -71,7 +71,7 @@ output/social-photos/
       --fg:            #ffffff;
       --fg-secondary:  #b3b3b3;
       --fg-muted:      #808080;
-      --primary:       #009999;
+      --primary:       #008383;
       --on-primary:    #ffffff;
     }
 
@@ -113,7 +113,7 @@ output/social-photos/
 - **No scrolling** — everything fits in one viewport
 - **High contrast** — minimum 4.5:1 (WCAG AA) for all text
 - **Safe zones** — critical content within central 80% area
-- **One accent** — `#009999` is the only accent; use for one CTA or highlight element per image
+- **One accent** — `#008383` is the only accent; use for one CTA or highlight element per image
 
 #### Typography Reference (at 1080px width)
 
@@ -200,7 +200,7 @@ Check each exported PNG:
 - No overflow or clipping
 - Safe zones respected
 - Contrast ≥ 4.5:1 for all text
-- No stray colors beyond neutral + `#009999`
+- No stray colors beyond neutral + `#008383`
 
 ---
 

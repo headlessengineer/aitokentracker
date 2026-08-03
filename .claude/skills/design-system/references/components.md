@@ -57,7 +57,7 @@ fades to `opacity-subtle` (0.8), underline persists.
 
 Background: `surface-card`. Radius: `lg` (12px). Padding: 24px.
 
-Hover (interactive cards only): `box-shadow: 0 4px 24px rgba(0,153,153,0.18)` +
+Hover (interactive cards only): `box-shadow: 0 4px 24px rgba(0, 131, 131,0.18)` +
 `transform: translateY(-2px)`. No background-only surface shift.
 
 ---

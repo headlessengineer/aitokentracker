@@ -13,10 +13,10 @@
 
 | Context | HEADLESS | ENGINEER |
 |---|---|---|
-| Our own properties (light) | `fg` (near-black) | teal `#009999` |
-| Our own properties (dark) | `fg` (white) | teal `#009999` |
+| Our own properties (light) | `fg` (near-black) | teal `#008383` |
+| Our own properties (dark) | `fg` (white) | teal `#008383` |
 | Inside a client's product | `fg` (monochrome) | `fg` (monochrome) |
-| "Built by" credit | `fg` | `accent-brand` (#009999) — never the client's accent |
+| "Built by" credit | `fg` | `accent-brand` (#008383) — never the client's accent |
 
 ## The Swap Signature
 

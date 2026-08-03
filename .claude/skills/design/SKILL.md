@@ -1,6 +1,6 @@
 ---
 name: design
-description: headlessengineer design orchestration — routes to the right sub-skill for logo design, icon design, social photos, banners, slides, and client brand deliverables. All output constrained to monochrome + one accent (#009999), Inter typography, borderless surfaces. Use as the entry point for any design task not covered by brand, design-system, or component-build.
+description: headlessengineer design orchestration — routes to the right sub-skill for logo design, icon design, social photos, banners, slides, and client brand deliverables. All output constrained to monochrome + one accent (#008383), Inter typography, borderless surfaces. Use as the entry point for any design task not covered by brand, design-system, or component-build.
 argument-hint: "[logo|icon|social|banner|slides|deliverables]"
 metadata:
   author: headlessengineer
@@ -54,7 +54,7 @@ Source of truth: `.claude/skills/brand/SKILL.md` + `.claude/skills/design-system
 
 Every design artifact — regardless of medium — must satisfy these:
 
-1. **One accent slot.** `#009999` on our properties. Client's color on client work. No second hue.
+1. **One accent slot.** `#008383` on our properties. Client's color on client work. No second hue.
 2. **Neutral ramp only** for all other color. No mid-tones outside the 12-step ramp.
 3. **Inter** for all text. Bitcount Grid Double for the wordmark only. JetBrains Mono for code.
 4. **Accent rationed:** primary action, wordmark, links, key figure, focus, active, one badge. Never body text or large fills.

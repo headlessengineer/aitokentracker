@@ -131,7 +131,7 @@ new hues.
 ## Rules That Never Change
 
 Regardless of context:
-- Only `#009999` or client's accent — no secondary accent
+- Only `#008383` or client's accent — no secondary accent
 - Only Inter and JetBrains Mono — no decorative or display fonts
 - No visible border strokes for surface division — use fill/spacing
 - No gradients — contrast comes from opacity or fill

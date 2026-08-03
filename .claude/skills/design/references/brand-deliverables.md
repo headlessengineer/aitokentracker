@@ -5,7 +5,7 @@ brand or when producing a deliverable set for a client.
 
 All deliverables follow the headlessengineer system: neutral foundation + one accent
 slot, Inter typography, no decorative borders. Client deliverables use the client's
-accent in place of `#009999`; the neutral system is identical.
+accent in place of `#008383`; the neutral system is identical.
 
 ---
 
@@ -89,7 +89,7 @@ accent in place of `#009999`; the neutral system is identical.
 - Embroidery preferred over print (more durable, premium)
 - Placement: left chest for small wordmark; back center for larger
 - Color: black or white garment; wordmark in contrasting neutral
-- Accent: ENGINEER half in embroidery thread color closest to `#009999`
+- Accent: ENGINEER half in embroidery thread color closest to `#008383`
 
 ---
 
@@ -115,12 +115,12 @@ accent in place of `#009999`; the neutral system is identical.
 
 ## Print Color Reference
 
-headlessengineer teal `#009999` in print-safe values:
+headlessengineer teal `#008383` in print-safe values:
 
 | Mode | Value |
 |---|---|
-| Hex | `#009999` |
-| RGB | `0, 153, 153` |
+| Hex | `#008383` |
+| RGB | `0, 131, 131` |
 | CMYK (approximate) | `C:100 M:0 Y:0 K:40` |
 | Pantone (nearest) | PMS 3145 C |
 

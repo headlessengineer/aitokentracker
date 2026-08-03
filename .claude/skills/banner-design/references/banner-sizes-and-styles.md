@@ -74,7 +74,7 @@ Type IS the design — composition built entirely from Inter.
 
 ### 3. Duotone Photo
 Photography treated to the brand's one-hue constraint.
-- Photo converted to **duotone** (black→white) or **tritone** (black+`#009999`+white)
+- Photo converted to **duotone** (black→white) or **tritone** (black+`#008383`+white)
 - Text overlaid on neutral surface strip or directly on the treated photo
 - Never full-color photography; never stray hues from the image
 - **Use:** article OG images, hero banners, editorial social posts
