@@ -2,6 +2,8 @@
 
 AI Token Tracker — system design, data flow, and module boundaries.
 
+> **See also:** [`docs/project-understanding.md`](project-understanding.md) is the canonical current-state orientation map — read it first for a verified snapshot of the full system. This file goes deeper on design rationale, diagrams, and ADR-style decisions.
+
 ---
 
 ## Overview
@@ -9,11 +11,11 @@ AI Token Tracker — system design, data flow, and module boundaries.
 The application is a **local-first, server-rendered dashboard** built on Next.js 16 App Router. It reads AI tool data directly from the local filesystem at request time — no database, no background sync, no auth. A plugin registry decouples tool-specific collection logic from the shared UI layer.
 
 ```
-Browser → Next.js Server → Plugin Registry → File System (~/.tool/*)
+Browser → Next.js Server → Plugin Registry → Local Filesystem (JSONL logs, SQLite DBs, …)
                         ↓
                    React Server Components → HTML streamed to browser
                         ↓
-              Client Components (charts, ControlBar, theme) hydrated in browser
+              Client Components (charts, DashboardGrid, OffcanvasNav, ControlBar, theme) hydrated in browser
 ```
 
 ---
@@ -26,26 +28,29 @@ graph TD
         UI["Dashboard UI"]
         EC["ECharts (client)"]
         CB["ControlBar (client)"]
+        DG["DashboardGrid (client)"]
+        ON["OffcanvasNav (client)"]
     end
 
     subgraph Server["Next.js 16 Server"]
         SC["Server Components\n(pages, layout, Shell)"]
         RH["Route Handlers\n/api/*"]
-        PR["Plugin Registry\n(singleton)"]
+        PR["Plugin Registry\n(singleton — 34 plugins)"]
     end
 
     subgraph Plugins["Plugins"]
-        CP["Claude Plugin"]
-        OP["Codex (placeholder)"]
-        CUP["Cursor (placeholder)"]
-        WP["Windsurf (placeholder)"]
-        GHP["Copilot (placeholder)"]
-        KP["Kiro (placeholder)"]
+        CP["ClaudePlugin\n(rich — index.ts + collector.ts)"]
+        LP["LightweightPlugin ×23\n(shared collect.ts helpers)"]
+        SP["SQLitePlugin ×8\n(node:sqlite — antigravity, devin, goose,\nhermes, kilo, micode, opencode, zed)"]
+        PH["Placeholder ×2\n(cursor, windsurf)"]
+        PC["PluginCore / collect.ts\n(buildPluginData, parseClaudeStyleJsonl,\nglobFiles, pathExists, statSync …)"]
     end
 
     subgraph FS["Local Filesystem"]
-        CL["~/.claude/projects/**/*.jsonl"]
-        SET["~/.claude/settings.json"]
+        CL["~/.claude/projects/**/*.jsonl\n~/.claude/settings.json[.local]"]
+        OT["~/.codex  ~/.gemini  ~/.grok\n~/.local/share/* (opencode, amp, goose …)"]
+        VS["VS Code globalStorage\n(roocode, kilocode, cline)"]
+        DB["SQLite .db files\n(hermes, kilo, micode, zed, devin …)"]
     end
 
     UI -->|"URL ?days=N"| SC
@@ -53,17 +58,19 @@ graph TD
     SC --> PR
     RH --> PR
     PR --> CP
-    PR --> OP
-    PR --> CUP
-    PR --> WP
-    PR --> GHP
-    PR --> KP
-    CP -->|"fs.readFileSync"| CL
-    CP -->|"fs.readFileSync"| SET
+    PR --> LP
+    PR --> SP
+    PR --> PH
+    LP -.->|"uses"| PC
+    SP -.->|"uses"| PC
+    CP -->|"readdirSync / readFileSync"| CL
+    LP -->|"fs reads"| OT
+    LP -->|"fs reads"| VS
+    SP -->|"DatabaseSync"| DB
     SC -->|"serialised props"| EC
 
     style Browser fill:#f2f2f2,stroke:#e0e0e0
-    style Server fill:#fafafa,stroke:#009999
+    style Server fill:#fafafa,stroke:#008383
     style Plugins fill:#f2f2f2,stroke:#e0e0e0
     style FS fill:#fafafa,stroke:#e0e0e0
 ```
@@ -80,8 +87,8 @@ sequenceDiagram
     participant Browser
     participant NextServer as Next.js Server
     participant Registry as Plugin Registry
-    participant Plugin as Claude Plugin
-    participant FS as Filesystem
+    participant Plugin as Plugin (e.g. Claude)
+    participant FS as Filesystem / SQLite
 
     User->>Browser: selects "7D" from time range dropdown
     Browser->>NextServer: GET /claude?days=7
@@ -97,10 +104,10 @@ sequenceDiagram
     Plugin->>FS: readFileSync ~/.claude/settings.json
     FS-->>Plugin: hook definitions
     Plugin-->>NextServer: PluginData { summary, collectedAt }
-    NextServer->>NextServer: render server components\n(KPICard, ConversationTable, HooksPanel…)
+    NextServer->>NextServer: build WidgetDef[] conditionally\nrender server components\n(KPICard, ConversationTable, HooksPanel…)
     NextServer->>NextServer: embed chart data as serialised props
     NextServer-->>Browser: HTML + serialised props
-    Browser->>Browser: hydrate ECharts components\n(TokenBreakdown, TimelineChart, etc.)
+    Browser->>Browser: hydrate DashboardGrid, ECharts\nOffcanvasNav, ControlBar, ThemeToggle
     Browser-->>User: interactive dashboard
 ```
 
@@ -115,66 +122,97 @@ graph TD
     TB["TopBar\n[server]"]
     WM["Wordmark\n[server]"]
     TT["ThemeToggle\n[client]"]
+    ON["OffcanvasNav\n[client — hamburger drawer]"]
     PG["PluginPage / OverviewPage\n[server]"]
     CB["ControlBar\n[client]"]
+    RB["RefreshButton\n[client]"]
+    AR["AutoRefresh\n[client]"]
+    DG["DashboardGrid\n[client — react-grid-layout]"]
     KPI["KPICard\n[server]"]
     SEC["Section\n[server]"]
+    PB["PluginBanner\n[server]"]
+    PC2["PluginCard\n[server]"]
     TB2["TokenBreakdown\n[client — ECharts]"]
+    CT2["CostTimeline\n[client — ECharts]"]
     TL["TimelineChart\n[client — ECharts]"]
     AH["ActivityHeatmap\n[client — ECharts]"]
     MC["ModelChart\n[client — ECharts]"]
+    MSC["ModelStackedChart\n[client — ECharts]"]
     SA["SubAgentChart\n[client — ECharts]"]
     SK["SkillsChart\n[client — ECharts]"]
     MCP["MCPChart\n[client — ECharts]"]
     TT2["TopToolsChart\n[client — ECharts]"]
+    TCD["ToolCategoryDonut\n[client — ECharts]"]
+    DH["DurationHistogram\n[client — ECharts]"]
     HP["HooksPanel\n[server]"]
     CT["ConversationTable\n[server]"]
-    PC["PluginCard\n[server]"]
+    PT["ProjectTable\n[server]"]
     EC["EChart wrapper\n[client]"]
+    NE["NotificationEvaluator\n[client]"]
 
     RL --> SH
     SH --> TB
     SH --> PG
     TB --> WM
     TB --> TT
+    TB --> ON
     PG --> CB
-    PG --> KPI
-    PG --> SEC
+    PG --> AR
+    CB --> RB
+    PG --> DG
+    DG --> KPI
+    DG --> SEC
+    DG --> PB
     SEC --> TB2
+    SEC --> CT2
     SEC --> TL
     SEC --> AH
     SEC --> MC
+    SEC --> MSC
     SEC --> SA
     SEC --> SK
     SEC --> MCP
     SEC --> TT2
+    SEC --> TCD
+    SEC --> DH
     SEC --> HP
     SEC --> CT
-    PG --> PC
+    SEC --> PT
+    PG --> PC2
+    PG --> NE
     TB2 --> EC
+    CT2 --> EC
     TL --> EC
     AH --> EC
     MC --> EC
+    MSC --> EC
     SA --> EC
     SK --> EC
     MCP --> EC
     TT2 --> EC
+    TCD --> EC
+    DH --> EC
 
-    NE["NotificationEvaluator\n[client]"]
-    PG --> NE
-
-    style TT fill:#009999,color:#fff
-    style CB fill:#009999,color:#fff
-    style NE fill:#009999,color:#fff
-    style TB2 fill:#009999,color:#fff
-    style TL fill:#009999,color:#fff
-    style AH fill:#009999,color:#fff
-    style MC fill:#009999,color:#fff
-    style SA fill:#009999,color:#fff
-    style SK fill:#009999,color:#fff
-    style MCP fill:#009999,color:#fff
-    style TT2 fill:#009999,color:#fff
-    style EC fill:#009999,color:#fff
+    style TT fill:#008383,color:#fff
+    style ON fill:#008383,color:#fff
+    style CB fill:#008383,color:#fff
+    style RB fill:#008383,color:#fff
+    style AR fill:#008383,color:#fff
+    style DG fill:#008383,color:#fff
+    style NE fill:#008383,color:#fff
+    style TB2 fill:#008383,color:#fff
+    style CT2 fill:#008383,color:#fff
+    style TL fill:#008383,color:#fff
+    style AH fill:#008383,color:#fff
+    style MC fill:#008383,color:#fff
+    style MSC fill:#008383,color:#fff
+    style SA fill:#008383,color:#fff
+    style SK fill:#008383,color:#fff
+    style MCP fill:#008383,color:#fff
+    style TT2 fill:#008383,color:#fff
+    style TCD fill:#008383,color:#fff
+    style DH fill:#008383,color:#fff
+    style EC fill:#008383,color:#fff
 ```
 
 > Teal nodes = `"use client"`. White nodes = React Server Components.
@@ -207,48 +245,55 @@ classDiagram
     class ClaudePlugin {
         +id = "claude"
         +dataPath = "~/.claude/projects"
-        +isAvailable() Promise~boolean~
-        +collect(options?) Promise~PluginData~
+        Rich implementation: walks JSONL + subagents
+        Extracts topTools (categorized), subAgents,
+        skills, mcpServers, hooks, costUSD
     }
 
-    class CodexPlugin {
-        +id = "codex"
-        +isAvailable() false
-        +collect() empty PluginData
+    class LightweightPlugin {
+        <<23 plugins — JSONL / JSON / session dirs>>
+        Uses shared collect.ts helpers
+        parseClaudeStyleJsonl / globFiles
+        Extended arrays left empty
+        totalCostUSD = 0
     }
 
-    class CursorPlugin {
-        +id = "cursor"
-        +isAvailable() false
-        +collect() empty PluginData
+    class SQLitePlugin {
+        <<8 plugins>>
+        antigravity, devin, goose, hermes,
+        kilo, micode, opencode, zed
+        Uses node:sqlite DatabaseSync
+        buildPluginData for aggregation
     }
 
-    class WindsurfPlugin {
-        +id = "windsurf"
-        +isAvailable() false
-        +collect() empty PluginData
+    class PlaceholderPlugin {
+        <<2 plugins — cursor, windsurf>>
+        +isAvailable() false (hard-coded)
+        +dataPath = ""
+        +collect() emptyPluginData
     }
 
-    class CopilotPlugin {
-        +id = "copilot"
-        +isAvailable() false
-        +collect() empty PluginData
-    }
-
-    class KiroPlugin {
-        +id = "kiro"
-        +isAvailable() false
-        +collect() empty PluginData
+    class PluginCore {
+        <<src/plugins/core/collect.ts>>
+        +buildPluginData()
+        +parseClaudeStyleJsonl()
+        +globFiles()
+        +emptyPluginData()
+        +convStatus()
+        +pathExists()
+        +statSync()
     }
 
     TokenPlugin <|.. ClaudePlugin
-    TokenPlugin <|.. CodexPlugin
-    TokenPlugin <|.. CursorPlugin
-    TokenPlugin <|.. WindsurfPlugin
-    TokenPlugin <|.. CopilotPlugin
-    TokenPlugin <|.. KiroPlugin
+    TokenPlugin <|.. LightweightPlugin
+    TokenPlugin <|.. SQLitePlugin
+    TokenPlugin <|.. PlaceholderPlugin
+    LightweightPlugin ..> PluginCore : uses
+    SQLitePlugin ..> PluginCore : uses
     PluginRegistry "1" --> "*" TokenPlugin : holds
 ```
+
+> **Known gap:** `src/plugins/devindesktop/` exists on disk but is not registered — it re-exports `DEVIN_PLUGIN` (which itself handles both CLI SQLite and Desktop NDJSON) and is never imported in `src/plugins/index.ts`.
 
 ---
 
@@ -264,6 +309,7 @@ erDiagram
     PluginSummary {
         number totalConversations
         number activeConversations
+        number totalCostUSD
         Date lastActivity
     }
 
@@ -273,6 +319,11 @@ erDiagram
         number cacheRead
         number cacheWrite
         number total
+    }
+
+    DailyCost {
+        string date
+        number costUSD
     }
 
     ConversationSummary {
@@ -334,6 +385,7 @@ erDiagram
 
     PluginData ||--|| PluginSummary : "contains"
     PluginSummary ||--|| TokenUsage : "totalTokens"
+    PluginSummary ||--o{ DailyCost : "dailyCost[]"
     PluginSummary ||--o{ ConversationSummary : "conversations[]"
     PluginSummary ||--o{ DailyActivity : "dailyActivity[]"
     PluginSummary ||--o{ ProjectStats : "topProjects[]"
@@ -370,49 +422,65 @@ aitokentracker/
 │   │       └── [pluginId]/data/route.ts # GET ?days=N → PluginData
 │   │
 │   ├── plugins/
-│   │   ├── index.ts                     # Registers all plugins; single import point
+│   │   ├── index.ts                     # Registers all 34 plugins; single import point
 │   │   ├── core/
 │   │   │   ├── types.ts                 # All shared types (TokenPlugin, PluginData, etc.)
-│   │   │   └── registry.ts              # PluginRegistry singleton
+│   │   │   ├── registry.ts              # PluginRegistry singleton
+│   │   │   └── collect.ts               # Shared collection helpers: buildPluginData,
+│   │   │                                #   parseClaudeStyleJsonl, globFiles, emptyPluginData,
+│   │   │                                #   convStatus, pathExists, statSync
 │   │   ├── claude/
 │   │   │   ├── index.ts                 # ClaudePlugin — date gate on all aggregations
-│   │   │   └── collector.ts             # Filesystem reader + JSONL parser
-│   │   ├── codex/index.ts               # Placeholder — isAvailable: false
-│   │   ├── cursor/index.ts              # Placeholder
-│   │   ├── windsurf/index.ts            # Placeholder
-│   │   ├── copilot/index.ts             # Placeholder
-│   │   ├── kiro/index.ts                # Placeholder
-│   │   └── antigravity/index.ts         # Placeholder
+│   │   │   └── collector.ts             # Filesystem reader + JSONL parser (rich extraction)
+│   │   └── <tool>/index.ts              # One dir per tool (34 total); each implements TokenPlugin
+│   │                                    # using collect.ts helpers (JSONL / JSON / SQLite)
 │   │
 │   ├── components/
 │   │   ├── charts/
 │   │   │   └── EChart.tsx               # ECharts React wrapper (client, SVG renderer)
 │   │   ├── dashboard/
+│   │   │   ├── DashboardGrid.tsx        # Draggable/resizable widget grid (client,
+│   │   │   │                            #   react-grid-layout); persists layout to localStorage
 │   │   │   ├── KPICard.tsx              # Stat tile (server)
 │   │   │   ├── Section.tsx              # Section wrapper with title (server)
+│   │   │   ├── PluginCard.tsx           # Plugin overview card (server)
+│   │   │   ├── PluginBanner.tsx         # "Not configured" / placeholder banner (server)
 │   │   │   ├── TokenBreakdown.tsx       # Donut — input/output/cache split (client, useChartTheme)
+│   │   │   ├── CostTimeline.tsx         # Bar chart — daily cost (client, useChartTheme)
 │   │   │   ├── TimelineChart.tsx        # Bar chart — daily token usage (client, useChartTheme)
 │   │   │   ├── ActivityHeatmap.tsx      # Calendar heatmap — annual activity (client, useChartTheme)
 │   │   │   ├── ModelChart.tsx           # Horizontal bar — token usage per model (client, useChartTheme)
+│   │   │   ├── ModelStackedChart.tsx    # Stacked bar — model breakdown (client, useChartTheme)
 │   │   │   ├── SubAgentChart.tsx        # Donut — sub-agent invocations (client, useChartTheme)
 │   │   │   ├── SkillsChart.tsx          # Horizontal bar — skill invocations (client, useChartTheme)
 │   │   │   ├── MCPChart.tsx             # Donut — MCP server calls (client, useChartTheme)
 │   │   │   ├── TopToolsChart.tsx        # Horizontal bar — all tool calls (client, useChartTheme)
+│   │   │   ├── ToolCategoryDonut.tsx    # Donut — tool calls by category (client, useChartTheme)
+│   │   │   ├── DurationHistogram.tsx    # Histogram — conversation durations (client, useChartTheme)
 │   │   │   ├── HooksPanel.tsx           # Hook config + estimated fires (server)
 │   │   │   ├── ConversationTable.tsx    # Paginated conversation list (server)
-│   │   │   ├── PluginCard.tsx           # Plugin overview card (server)
+│   │   │   ├── ProjectTable.tsx         # Project stats table (server)
 │   │   │   └── NotificationEvaluator.tsx # Renders null; fires browser notifications (client)
 │   │   ├── layout/
 │   │   │   ├── Shell.tsx                # App shell — TopBar + full-width main (no sidebar)
-│   │   │   ├── TopBar.tsx               # Wordmark + title breadcrumb + ThemeToggle
+│   │   │   ├── TopBar.tsx               # Wordmark + ThemeToggle + OffcanvasNav
+│   │   │   ├── OffcanvasNav.tsx         # Hamburger drawer — Overview + all plugins (client;
+│   │   │   │                            #   ESC/backdrop close, focus management)
 │   │   │   └── Wordmark.tsx             # Two-tone HEADLESSENGINEER wordmark, Bitcount font,
 │   │   │                                #   Swap animation (server — CSS only, no hooks)
 │   │   └── ui/
 │   │       ├── Badge.tsx                # Status badge (active/recent/inactive/accent)
-│   │       ├── ControlBar.tsx           # View selector + days selector dropdowns (client)
+│   │       ├── ControlBar.tsx           # Time-range <select> + optional action slot
+│   │       │                            #   + dataPath label (client)
+│   │       ├── RefreshButton.tsx        # Manual refresh trigger (client, useTransition)
+│   │       ├── AutoRefresh.tsx          # Periodic auto-refresh every N ms (client)
 │   │       ├── Skeleton.tsx             # Loading skeleton shimmer
 │   │       ├── ThemeToggle.tsx          # Light/dark toggle (client)
 │   │       └── TimeRangeFilter.tsx      # Legacy pill selector — kept but not used in pages
+│   │
+│   ├── types/
+│   │   └── node-sqlite.d.ts             # TypeScript types for node:sqlite (DatabaseSync etc.)
+│   │                                    #   Used by all 8 SQLite-backed plugins
 │   │
 │   └── lib/
 │       ├── format.ts                    # formatTokens, formatRelativeTime, formatNumber
@@ -451,7 +519,7 @@ aitokentracker/
 
 **Decision:** No in-memory or Redis cache. Every request re-reads the filesystem.
 
-**Rationale:** JSONL files are written continuously by Claude Code. A cache would either show stale data or require invalidation logic. File reads on a local SSD for ~500 conversations take <100ms — caching adds complexity for negligible gain.
+**Rationale:** JSONL files are written continuously by AI tools. A cache would either show stale data or require invalidation logic. File reads on a local SSD for ~500 conversations take <100ms — caching adds complexity for negligible gain.
 
 **Trade-off:** Cold-start latency scales linearly with conversation count. Future mitigation: incremental read using `mtime` filtering.
 
@@ -497,13 +565,13 @@ aitokentracker/
 
 ---
 
-### 7. Sidebar removed in favour of ControlBar dropdown
+### 7. OffcanvasNav for tool switching; ControlBar for time range only
 
-**Decision:** The sidebar navigation was replaced with a `ControlBar` component — two `<select>` dropdowns (view selector + time range) rendered as the first row of content on every page.
+**Decision:** Tool navigation lives in an **OffcanvasNav** hamburger drawer (top-right of TopBar); `ControlBar` is narrowed to a single time-range `<select>` plus an optional action slot (`RefreshButton`) and a dataPath label.
 
-**Rationale:** A sidebar consumes a fixed ~240px column on every page load, reducing the horizontal space available for charts and data tables. On an analytics dashboard where content density matters, that space is better used by the charts. Collapsing view selection and time range into a single control row at the top of the content area recovers the full viewport width with no loss of functionality. URL-driven navigation is preserved — the view selector navigates to `/${pluginId}?days=N` and the days selector updates `?days=N` in place.
+**Rationale:** A persistent sidebar or a combined "view + time range" dropdown conflated two different interaction frequencies. Tool switching is infrequent (once per session); time range changes happen much more often. Separating them removes the view selector from ControlBar entirely, simplifying that component, while the off-canvas drawer keeps tool navigation accessible without consuming persistent horizontal space. The off-canvas panel overlays the full page, provides a full plugin list (34 tools) with availability indicators, and closes on ESC or backdrop click with focus management.
 
-**Trade-off:** The current tool is less immediately visible (requires opening the dropdown vs. scanning a sidebar). Acceptable for a tool-switching pattern that is infrequent compared to time range changes.
+**Trade-off:** The off-canvas pattern requires an extra click to open. Acceptable because tool switching is infrequent. The ControlBar now renders only a single select and optional supplementary elements — no view-selector dropdown remains.
 
 ---
 
@@ -524,23 +592,39 @@ aitokentracker/
 
 ---
 
+### 9. Draggable/resizable dashboard via react-grid-layout
+
+**Decision:** Pages pass a `WidgetDef[]` array to `<DashboardGrid>` instead of rendering `<Section>` elements directly. `DashboardGrid` wraps `react-grid-layout`'s `Responsive` (legacy build) to give drag-and-drop reordering and corner-resize of every widget card.
+
+**Rationale:** Analytics dashboards benefit from user-configurable layouts — different users prioritize different charts (token timeline vs. project breakdown vs. sub-agents). The grid lets users arrange widgets to match their workflow without any server changes. Layouts are persisted per-plugin to `localStorage` under the key `aitokentracker-layout-<pluginId>`, so preferences survive page reloads. New widgets added by future iterations are merged in at the bottom, never overwriting existing user positions.
+
+**Mechanics:**
+- Pages build `WidgetDef[]` conditionally — a widget is only included when its data is non-empty (avoids blank placeholders).
+- An **Edit layout** button in the grid toolbar activates drag handles and corner resize grips.
+- A **Reset layout** button (visible only in edit mode) clears localStorage and restores the default `defaultPos` grid defined in the page.
+- Breakpoints: lg (1280px) / md (768px) / sm (480px) / xs (0); column counts 12 / 12 / 6 / 4.
+
+**Trade-off:** Client-side layout state adds complexity — the grid hydrates from localStorage before the first paint, which requires a `useEffect`. The `react-grid-layout` dependency adds ~40 KB to the client bundle. Accepted as a worthwhile UX improvement; the dependency is well-maintained and has no React 19 compatibility issues.
+
+---
+
 ## Extension Points
 
 ### Add a new tool plugin
 
 1. Create `src/plugins/<toolid>/index.ts` implementing `TokenPlugin`
 2. Register it in `src/plugins/index.ts`: `registry.register(MY_PLUGIN)`
-3. The ControlBar view dropdown, overview plugin grid, and `/api/plugins` route pick it up automatically
+3. The OffcanvasNav, overview plugin grid, and `/api/plugins` route pick it up automatically
 
-The ControlBar dropdown populates from `registry.getAll()` — no changes needed.
+The OffcanvasNav (`src/components/layout/OffcanvasNav.tsx`) populates from `registry.getAll()` passed down from the page — no changes needed.
 
 | Feature | How |
 |---|---|
-| ControlBar view dropdown | `ControlBar.tsx` iterates plugins passed from `registry.getAll()` |
+| OffcanvasNav tool list | `OffcanvasNav` iterates plugins passed from the page (sourced via `registry.getAll()`) |
 | Overview card | `PluginCard` on `/` shows tokens + conversations |
 | Detail page | `/mytool` renders `app/[pluginId]/page.tsx` — no new file needed |
 | API route | `GET /api/mytool/data?days=N` is handled by `app/api/[pluginId]/data/route.ts` |
-| Availability state | "Not configured" shown when `isAvailable()` returns false |
+| Availability state | "Not configured" banner shown when `isAvailable()` returns false |
 | Time range filter | `searchParams.days` is passed to `collect()` automatically |
 
 ### Add a new chart component
@@ -549,7 +633,7 @@ The ControlBar dropdown populates from `registry.getAll()` — no changes needed
 2. Accept typed data props (use types from `src/plugins/core/types.ts`)
 3. Call `useChartTheme()` from `@/lib/useChartTheme` and use `theme.*` values in the ECharts option — never pass `'var(--*)'` strings directly to ECharts
 4. Use `<EChart option={...} />` from `src/components/charts/EChart.tsx`
-5. Import and render it in `src/app/[pluginId]/page.tsx` within a `<Section>`
+5. Add a `WidgetDef` entry in `src/app/[pluginId]/page.tsx`'s widget array, pointing to `<Section><MyChart /></Section>`
 
 ### Add a new API endpoint
 

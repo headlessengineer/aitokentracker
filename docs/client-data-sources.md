@@ -1,12 +1,33 @@
 ---
 title: Client Data Sources Reference
 date: 2026-07-14
-version: 1.0
+version: 1.1
 ---
 
 # Client Data Sources Reference
 
-tokscale tracks 39 AI coding tool clients defined in `clients.rs`. Each client specifies a canonical ID, a data directory resolved from a `PathRoot` enum variant plus a relative path, a file pattern, and a wire format. This document is the authoritative quick reference for those definitions.
+> **See also:** [`docs/project-understanding.md`](project-understanding.md) is the canonical orientation map for this app's actual plugin set and data paths.
+
+---
+
+## Provenance and scope of this document
+
+> **Important — read before using this table.**
+>
+> The tables below originated as a reference export from the **tokscale** project — an external Rust tool (`clients.rs`) that defines 39 AI coding tool clients. They were used to source the on-disk data locations for this app's plugins. This document is retained as a handy reference for tool data-path discovery, but it describes **tokscale**, not aitokentracker. Key differences:
+>
+> 1. **aitokentracker reads local tool files directly** — it does not run sync caches, background probes, or RPC calls. Any note below about tokscale "sync", the `agy` RPC probe, or cache directories like `~/.config/tokscale/*` describes tokscale's own behavior and is irrelevant to this app.
+> 2. **Not every client here has a plugin in this app.** Entries such as `trae`, `warp`, `crush`, and `workbuddy` have no corresponding plugin in `src/plugins/`. Only 34 plugins are registered; see `project-understanding.md` for the full list.
+> 3. **The `submit` column is a tokscale concept** — it controls whether tokscale submits collected data to a remote endpoint. aitokentracker has no submission mechanism; all data stays local.
+> 4. **`devin-desktop`** (NDJSON, `~/Library/Application Support/Devin/User/acp-events`) corresponds to `src/plugins/devindesktop/` in this repo — but that directory is **not registered** in `src/plugins/index.ts`. Desktop NDJSON sources are read by the registered `devin` plugin, which combines CLI SQLite and Desktop NDJSON internally.
+
+---
+
+## How the table maps to aitokentracker plugins
+
+The data-path columns (Resolved base + Relative path + Pattern) are the most useful part of this reference — they tell you where each tool writes its local files, which is exactly what aitokentracker plugins use. For tools that do appear in this app, the paths here match (or closely correspond to) the `dataPath` in `src/plugins/<tool>/index.ts`.
+
+tokscale tracks 39 AI coding tool clients defined in `clients.rs`. Each client specifies a canonical ID, a data directory resolved from a `PathRoot` enum variant plus a relative path, a file pattern, and a wire format. The tables below are the reference for those definitions.
 
 > **Note:** `$XDG_DATA_HOME` defaults to `~/.local/share` when unset. `$TOKSCALE_CONFIG_DIR` defaults to `~/.config/tokscale` on Linux/macOS when unset.
 
@@ -81,6 +102,8 @@ tokscale tracks 39 AI coding tool clients defined in `clients.rs`. Each client s
 | 28 | `jcode` | `$JCODE_HOME` | `~/.jcode` | `sessions` | `session_*.json` | yes |
 
 > **Note:** `crush` (index 15) uses `projects.json` as a registry; each project entry points to a separate `crush.db` SQLite file. The registry is JSON but the actual usage data is SQLite. `submit_default` is `no`. `trae` and `warp` are synced caches managed by tokscale — not parsed from local tool files directly.
+>
+> **aitokentracker mapping:** `trae`, `warp`, `crush`, and `workbuddy` have **no plugin** in this app. `roocode`, `kilocode`, and `cline` are registered plugins; their VS Code `globalStorage` paths are used directly (no sync step).
 
 > **Note:** `roocode`, `kilocode`, and `cline` are VS Code extension clients. Their data lives under VS Code's `globalStorage` directory, keyed by extension publisher ID.
 
@@ -121,6 +144,8 @@ tokscale tracks 39 AI coding tool clients defined in `clients.rs`. Each client s
 | 38 | `devin-desktop` | `$HOME` | `~` | `Library/Application Support/Devin/User/acp-events` | `*.ndjson` | yes |
 
 > **Note:** macOS only. Path is under `~/Library/Application Support/`, which is the standard macOS app data location.
+>
+> **aitokentracker mapping:** `src/plugins/devindesktop/` exists on disk and reads from this path, but it is not registered in `src/plugins/index.ts`. Desktop NDJSON data is consumed instead by the registered `devin` plugin (`src/plugins/devin/index.ts`), which combines CLI SQLite (`~/.local/share/devin/cli/sessions.db`) and Desktop NDJSON sources in a single `collect()` call.
 
 ---
 

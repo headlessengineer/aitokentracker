@@ -1,5 +1,7 @@
 # AI Token Tracker — Product Guide
 
+> **See also:** [`docs/project-understanding.md`](project-understanding.md) is the canonical current-state orientation map — verified against source on 2026-08-03. This guide focuses on the user-facing feature walkthrough.
+
 ## What Is AI Token Tracker?
 
 AI coding tools — Claude Code, Cursor, Copilot, Windsurf, and others — consume tokens every time they read your code, generate a response, or invoke a sub-agent. These tokens translate directly into cost and plan limits, yet there is no unified place to see how much you are actually using across all your tools.
@@ -29,7 +31,7 @@ The overview page aggregates data across every configured tool and shows:
 
 ### Per-Plugin Dashboard
 
-Each tool has its own detail page, accessible from the view selector dropdown or the tool grid card. The Claude Code page (the only fully active plugin) shows:
+Each tool has its own detail page, accessible from the OffcanvasNav hamburger drawer or the tool grid card. Claude Code is the flagship plugin with the richest data extraction (sub-agents, skills, MCPs, hooks, cost). Approximately 31 other tools are also real active integrations (Codex, Gemini, opencode, amp, cline, roocode, kilocode, goose, zed, qwen, and more — see the Supported Tools table below); only `cursor` and `windsurf` remain placeholders. The Claude Code detail page (`/claude`) shows:
 
 - **4 KPI tiles** — total tokens, conversations, tool calls, last activity
 - **Token breakdown** — same donut as the overview but scoped to this tool
@@ -46,20 +48,31 @@ Each tool has its own detail page, accessible from the view selector dropdown or
 
 ### Navigation and Time Range
 
-Every dashboard page opens with a **ControlBar** — a single row containing two dropdowns:
+Tool switching and time filtering use two separate controls:
 
-- **View selector** — switch between Overview and any configured plugin without leaving the page
-- **Time range selector** — filter the entire dashboard to a specific window: 1D, 7D, 14D, 15D, 30D, 60D, or 90D
+- **OffcanvasNav** — a hamburger icon in the top-right corner of the TopBar opens a full-height drawer listing Overview and all 34 registered plugins. Unavailable plugins (cursor, windsurf) appear dimmed. Close with the × button, ESC key, or clicking the backdrop.
+- **ControlBar** — a single row below the TopBar containing only a **time-range selector**: 1D, 7D, 15D, 30D, 60D, or 90D. There is no view selector in the ControlBar; tool switching is handled entirely by the OffcanvasNav.
 
 Selecting a range updates the URL (`?days=7`) and causes the server to re-render with data scoped to that window. The selected range affects the daily activity chart, heatmap, KPI totals, top-projects and top-models aggregations, and the conversation table. The range is bookmarkable and shareable.
 
+### Draggable Dashboard Layout
+
+Every plugin detail page and the overview use a **DashboardGrid** — a draggable, resizable widget grid built on `react-grid-layout`. To rearrange widgets:
+
+1. Click **Edit layout** (top-right of the content area) to activate drag handles and corner resize grips.
+2. Drag widgets by their handle bar or resize them from the bottom-right corner.
+3. Click **Done editing** to save. The layout is persisted to `localStorage` under the key `aitokentracker-layout-<pluginId>` and restored on next visit.
+4. Click **Reset layout** (visible only in edit mode) to restore the default arrangement.
+
+New widgets added in future updates appear at the bottom of your saved layout rather than overwriting your positions.
+
 ### Dark Mode
 
-A sun/moon toggle in the top-right corner switches between light and dark themes. The preference is saved to `localStorage` under the key `headlessengineer-theme` and restored on next visit. If no preference is stored, the system's `prefers-color-scheme` setting is used.
+A sun/moon toggle in the top-right of the TopBar (beside the OffcanvasNav hamburger) switches between light and dark themes. The preference is saved to `localStorage` under the key `headlessengineer-theme` and restored on next visit. The active theme sets the `dark-mode` class on `body`. If no preference is stored, the system's `prefers-color-scheme` setting is used.
 
 ### Brand Identity
 
-The application header displays the HEADLESSENGINEER wordmark in the Bitcount Grid Double variable font. The word HEADLESS renders in the primary text colour; ENGINEER renders in teal (`#009999`). Hovering the wordmark triggers a "Swap" animation where ENGINEER slides out upward and a duplicate slides in from below, giving a rolling typographic effect. This animation respects `prefers-reduced-motion`.
+The application header displays the HEADLESSENGINEER wordmark in the Bitcount Grid Double variable font. The word HEADLESS renders in the primary text colour; ENGINEER renders in the accent teal (`--primary`, currently `#008383` in `globals.css`). Hovering the wordmark triggers a "Swap" animation where ENGINEER slides out upward and a duplicate slides in from below, giving a rolling typographic effect. This animation respects `prefers-reduced-motion`.
 
 ### Browser Notifications
 
@@ -87,14 +100,31 @@ AI Token Tracker uses a plugin architecture. Each AI tool is a self-contained pl
 
 ## Supported Tools
 
-| Tool | Status | Data Source | What Is Tracked |
-|---|---|---|---|
-| Claude Code | **Active** | `~/.claude/projects/**/*.jsonl` | Tokens (input/output/cache), models, tool calls, sub-agents, skills, MCPs, hooks, projects, conversations |
-| OpenAI Codex | Coming soon | TBD | — |
-| Cursor | Coming soon | TBD | — |
-| Windsurf | Coming soon | TBD | — |
-| GitHub Copilot | Coming soon | TBD | — |
-| Kiro | Coming soon | TBD | — |
+34 plugins are registered. 32 are real integrations with real data-path checks; 2 (`cursor`, `windsurf`) are hard placeholders (`isAvailable()` returns `false`).
+
+**Flagship (rich extraction):**
+
+| Tool | Data Source | What Is Tracked |
+|---|---|---|
+| Claude Code | `~/.claude/projects/**/*.jsonl` + `~/.claude/settings.json` | Tokens (input/output/cache), cost, models, tool calls, sub-agents, skills, MCPs, hooks, projects, conversations |
+
+**Active integrations (lightweight — tokens, models, projects, conversations):**
+
+| Group | Tools |
+|---|---|
+| JSONL / session dirs | Codex (`~/.codex`), Gemini (`~/.gemini`), Copilot (`~/.copilot/otel`), opencode, amp, qwen, openclaw, pi, commandcode, codebuddy, gjc, zcode, opencodereview, kimi, junie, grok, jcode, codebuff, droid, mux, cline, roocode, kilocode |
+| SQLite-backed | antigravity, devin, goose, hermes, kilo, micode, zed, opencode |
+| VS Code extensions | roocode, kilocode, cline (VS Code `globalStorage`) |
+| Kiro | `~/.kiro/sessions/cli` | Tokens, models, conversations |
+
+**Placeholders (not yet implemented):**
+
+| Tool | Status |
+|---|---|
+| Cursor | `isAvailable()` hard-returns `false`; no data path |
+| Windsurf | `isAvailable()` hard-returns `false`; no data path |
+
+> **Note:** `src/plugins/devindesktop/` exists on disk but is not registered — desktop NDJSON sources are handled directly by the `devin` plugin, which combines both CLI SQLite and Desktop NDJSON reads.
 
 ---
 
@@ -103,7 +133,7 @@ AI Token Tracker uses a plugin architecture. Each AI tool is a self-contained pl
 The following describes a full session on the Claude Code detail page (`/claude`).
 
 **1. ControlBar**
-The first element in the page content area. Two dropdowns side by side: a view selector (Overview or any plugin) and a time range selector. The view and time range are always visible regardless of scroll position — the TopBar is sticky.
+The first element in the page content area. Contains a single time-range selector dropdown and, on the detail page, a Refresh button and the plugin's data path label. Tool switching is handled by the OffcanvasNav hamburger in the TopBar, not the ControlBar. The TopBar is sticky, so the hamburger is always reachable regardless of scroll position.
 
 **2. KPI tiles (4 cards)**
 Four headline numbers side by side: total tokens for the window, total conversations, total tool calls (with unique tool count), and time since last activity. The "Total tokens" tile is highlighted in teal as the primary metric.
@@ -143,7 +173,7 @@ The time range filter controls which conversations are included in all aggregati
 |---|---|
 | 1D | Today's usage only — useful for checking a single heavy session |
 | 7D | Past week — typical for weekly planning |
-| 15D | Two-week sprint view |
+| 15D | Sprint view — aligns with two-week cycles |
 | 30D | Default — monthly snapshot, good for cost estimation |
 | 60D | Two-month trend — spots seasonal patterns |
 | 90D | Quarterly — useful for budget reviews |
@@ -248,7 +278,7 @@ See the developer guide (`docs/developer-guide.md`). You implement one TypeScrip
 They are estimates. The count for a `PreToolUse` hook with matcher `Write|Edit` is the sum of Write and Edit tool calls across all conversations in the selected window. Treat these as approximate figures rather than precise counts.
 
 **Q: A tool shows as "Not configured". Will it show data automatically once I install the tool?**
-Yes — as long as the plugin's `isAvailable()` function correctly detects the tool's data path. For placeholder plugins, `isAvailable()` currently always returns `false` until a real implementation is added. Once a full plugin is implemented and the tool has been used, it activates without any manual configuration.
+Yes — as long as the plugin's `isAvailable()` function correctly detects the tool's data path. For the 32 real integrations, it activates automatically once the tool has been used and written its local data files. The two remaining placeholders (`cursor` and `windsurf`) hard-return `false` from `isAvailable()` regardless; they will activate once a real implementation is added.
 
 **Q: I changed the time range but some charts didn't update.**
 This was a bug in an earlier version where the `since` cutoff was only applied to the daily activity bucket. It is now fixed: all aggregations — KPIs, models, projects, tools, sub-agents, skills, MCPs — are filtered by the selected time range.

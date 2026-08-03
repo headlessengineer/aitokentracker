@@ -29,9 +29,10 @@ You're running six AI coding tools across your team.
 A local-first dashboard that reads what your AI tools write to disk — no API key, no account, no data leaving your machine.
 
 - **One URL** shows all your AI tool usage in one view
-- **Plugin architecture** — Claude Code works today; every other tool gets its own plugin
-- **10 chart types** across models, agents, skills, tools, MCP servers, and hooks
-- **ControlBar** — view selector + time range in one row; no sidebar needed
+- **Plugin architecture** — **34 tools registered, 32 real integrations today** (Claude Code, Codex, Gemini, opencode, amp, cline, roocode, goose, zed, and more); cursor & windsurf are stubs awaiting data mapping
+- **11 chart types** across models, agents, skills, tools, MCP servers, and hooks
+- **Draggable dashboard** — drag/resize every widget in Edit-layout mode; per-tool layouts persist locally
+- **Off-canvas nav + ControlBar** — a hamburger drawer switches tools; a top control row sets the time range; no fixed sidebar
 - **Time range filter** — 1D to 90D, URL-driven, shareable
 - **Notifications** — OS-level browser alerts at 50%, 75%, and 100% of daily token limit; stays until dismissed
 - **HEADLESSENGINEER wordmark** — Bitcount Grid Double variable font with Swap animation
@@ -41,38 +42,38 @@ A local-first dashboard that reads what your AI tools write to disk — no API k
 
 ## Live Demo: Overview
 
-`http://localhost:3000/?days=30`
+`http://localhost:9295/?days=30`
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  HEADLESSENGINEER                             [☀] light/dark      │
+│  HEADLESSENGINEER                    [☀] light/dark   [≡] tools   │
 │  AI Token Tracker                                                  │
 ├──────────────────────────────────────────────────────────────────┤
-│  [View: Overview ▾]   [Last 30 days ▾]                            │
+│  [Last 30 days ▾]                                    [↻ Refresh]  │
 ├──────────────────────────────────────────────────────────────────┤
-│  Total tokens      Conversations   Active tools   Last active     │
-│  ─────────────     ─────────────   ────────────   ──────────      │
-│  47.3M             1,247           1 / 6          2m ago          │
+│  Total tokens   Conversations  Active tools  Last active  Cost    │
+│  ────────────   ────────────   ───────────   ──────────   ────    │
+│  47.3M          1,247          9 / 34        2m ago       $12.40  │
 ├──────────────────────────────────────────────────────────────────┤
 │  [Token breakdown donut]     [Daily usage bar chart — 30 days]    │
-│  [GitHub-style activity heatmap — full year]                      │
-│  [Claude Code ✓]  [Codex — not configured]  [Cursor — not conf.]  │
-│  [Windsurf ...]   [Copilot ...]             [Kiro ...]            │
+│  [Daily cost line]           [GitHub-style activity heatmap]      │
+│  [Claude Code ✓] [Codex ✓] [Gemini ✓] [opencode ✓] [amp ✓] …     │
+│  [Cursor — not configured]   [Windsurf — not configured]  …       │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 - Click any configured tool card → drill into its detail page
-- Change view or time range without navigating: use the ControlBar dropdowns
+- Switch tools from the **≡ hamburger drawer** (top-right); change the time range from the ControlBar; drag/resize widgets in Edit-layout mode
 
 ---
 
 ## Live Demo: Claude Code Detail
 
-`http://localhost:3000/claude?days=30`
+`http://localhost:9295/claude?days=30`
 
 Walk through top to bottom:
 
-1. **ControlBar** — view selector + time range in one row
+1. **ControlBar** — time-range selector + refresh (switch tools from the ≡ drawer)
 2. **KPIs** — total tokens, conversation count, unique tool calls, last activity
 3. **Token breakdown** — input vs output vs cache read vs cache write (donut)
 4. **Daily usage** — bar chart, last N days
@@ -87,38 +88,42 @@ Walk through top to bottom:
 
 ---
 
-## Navigation: ControlBar
+## Navigation: OffcanvasNav + ControlBar
 
-The sidebar was removed in favour of a single **ControlBar** row at the top of every page's content area:
+There is no fixed sidebar. Navigation is split across two controls:
+
+**OffcanvasNav** — a hamburger button (`≡`, top-right of the TopBar) opens an off-canvas drawer listing **Overview + every registered plugin**. Available tools are highlighted; unavailable ones are dimmed. Selecting one navigates to `/${pluginId}?days=N` (time range preserved). Closes on Esc or backdrop click, with full keyboard focus management.
+
+**ControlBar** — a single row at the top of the content area:
 
 ```
-[View: Overview ▾]   [Last 30 days ▾]
+[Last 30 days ▾]                                    [↻ Refresh]
 ```
 
-**View selector** — Overview and all registered plugins in one dropdown. Selecting a plugin navigates to `/${pluginId}?days=N`. Selecting Overview navigates to `/?days=N`. The current time range is preserved.
+**Days selector** — 1D, 7D, 15D, 30D, 60D, 90D. Updates `?days=` in the current URL. All charts and KPIs re-render server-side.
 
-**Days selector** — 1D, 7D, 14D, 15D, 30D, 60D, 90D. Updates `?days=` in the current URL without changing the view. All charts and KPIs update on re-render.
-
-The full viewport width is now available to charts and data tables — the old 240px sidebar column is gone.
+Splitting tool-switching (infrequent) from the time-range control (frequent) keeps the full viewport width available to charts and tables — no 240px sidebar column.
 
 ---
 
 ## Plugin Architecture
 
-Add any tool in 3 files.
+Add any tool in one file (plus one registration line). **34 plugins ship today.**
 
 ```
 src/plugins/
 ├── core/
-│   ├── types.ts       ← TokenPlugin interface lives here
-│   └── registry.ts    ← singleton, auto-wires to all routes + pages
+│   ├── types.ts       ← TokenPlugin interface + shared data model
+│   ├── registry.ts    ← singleton, auto-wires to all routes + pages
+│   └── collect.ts     ← shared helpers: buildPluginData, parseClaudeStyleJsonl, globFiles…
 ├── claude/
-│   ├── index.ts       ← ACTIVE: reads ~/.claude/**/*.jsonl
-│   └── collector.ts   ← JSONL parser, hook reader
-├── cursor/
-│   └── index.ts       ← TODO: reads Cursor's storage
-└── codex/
-    └── index.ts       ← TODO: reads OpenAI usage export
+│   ├── index.ts       ← RICH: reads ~/.claude/**/*.jsonl (tools, agents, skills, MCP, hooks, cost)
+│   └── collector.ts   ← JSONL parser + hook reader
+├── codex/index.ts     ← ACTIVE: OpenAI Codex delta-encoded sessions
+├── goose/index.ts     ← ACTIVE: SQLite via node:sqlite
+├── … 30 more active integrations (JSONL / per-session JSON / SQLite)
+├── cursor/index.ts    ← stub (isAvailable → false)
+└── windsurf/index.ts  ← stub (isAvailable → false)
 ```
 
 ```
@@ -128,7 +133,7 @@ TokenPlugin interface
 └── collect(options)  → Promise<PluginData>  // "give me the data"
 ```
 
-One interface. One registration line. ControlBar, overview grid, API routes, and detail pages all update automatically.
+Two ways to build one: use the shared `collect.ts` helpers (most tools) or write a rich collector like `claude`. One registration line and the OffcanvasNav, overview grid, API routes, and detail page all pick it up automatically.
 
 ---
 
@@ -154,7 +159,7 @@ Know before you hit the wall.
 
 ## Time Range Filter
 
-`?days=1 | 7 | 14 | 15 | 30 | 60 | 90`
+`?days=1 | 7 | 15 | 30 | 60 | 90`
 
 - URL-driven — bookmark any view, share with a teammate
 - Server-side — filter change re-renders from data, not from a cached snapshot
@@ -162,7 +167,7 @@ Know before you hit the wall.
 - Works on both overview (`/`) and every plugin detail page (`/claude`, `/cursor`, etc.)
 
 ```
-[ 1D ]  [ 7D ]  [ 14D ]  [ 15D ]  [■30D■]  [ 60D ]  [ 90D ]
+[ 1D ]  [ 7D ]  [ 15D ]  [■30D■]  [ 60D ]  [ 90D ]
 ```
 
 ---
@@ -171,7 +176,7 @@ Know before you hit the wall.
 
 UI is built on a strict token system — no hardcoded hex values anywhere.
 
-- **Palette:** monochrome greyscale + one accent: `#009999` (teal)
+- **Palette:** monochrome greyscale + one accent: `--primary` (teal, `#008383` in `globals.css`)
 - **Accent rationing:** primary actions, active states, key data series, one badge type — never body text, large fills, or status colours
 - **Surfaces:** differentiated by fill level (`--bg` → `--elevated` → `--surface-card`) — no border-bottom strokes
 - **Typography:** Inter (UI), JetBrains Mono (code/numbers), Bitcount Grid Double (wordmark)
@@ -187,6 +192,8 @@ UI is built on a strict token system — no hardcoded hex values anywhere.
 | Next.js 16 App Router | Server components eliminate client/server data waterfalls |
 | React 19 | Latest; no client state needed for data display |
 | ECharts 6 | Calendar heatmap native support; React 19 compatible; SVG renderer |
+| react-grid-layout 2.2.3 | Draggable/resizable widget dashboard; per-tool layouts persisted to `localStorage` |
+| `node:sqlite` | Reads SQLite-backed tools (goose, zed, hermes, kilo, micode, opencode, antigravity, devin) with no extra dependency |
 | `useChartTheme` hook | ECharts SVG renderer cannot resolve CSS vars — hook reads `getComputedStyle(body)` |
 | CSS Modules + custom properties | Design token enforcement; zero runtime overhead |
 | TypeScript strict | `unknown` over `any`; explicit return types on all exports |
@@ -200,11 +207,11 @@ UI is built on a strict token system — no hardcoded hex values anywhere.
 
 Immediate backlog:
 
-- **Cost estimation** — map model × token counts to $/1K pricing tables; show spend alongside token counts
-- **Real-time updates** — WebSocket or SSE to push new conversation activity without a page reload
-- **Cursor plugin** — Cursor stores session data in `~/.cursor`; collector in progress
-- **Windsurf plugin** — Codeium Windsurf; similar approach to Cursor
-- **Copilot plugin** — GitHub Copilot telemetry via local VSCode extension storage
+- **Cost estimation everywhere** — Claude already reports `costUSD`; extend model × token → $/1K pricing to the other tools so every plugin shows spend
+- **Real-time updates** — the detail page already auto-refreshes every 5s; move to WebSocket/SSE to push activity without a full re-render
+- **Cursor plugin** — still a stub; Cursor stores session data locally and needs a collector
+- **Windsurf plugin** — still a stub; similar approach to Cursor
+- **Wire up `devindesktop`** — the plugin directory exists but isn't registered yet
 
 Longer term:
 
@@ -221,34 +228,45 @@ Three steps, one interface.
 
 ```typescript
 // src/plugins/mytool/index.ts
-import type { TokenPlugin, PluginData } from '../core/types'
+import path from 'path'
+import os from 'os'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
+import { buildPluginData, emptyPluginData, pathExists, convStatus, globFiles } from '../core/collect'
+
+const DATA_DIR = path.join(os.homedir(), '.mytool', 'sessions')
 
 const MY_TOOL_PLUGIN: TokenPlugin = {
   id: 'mytool',
   name: 'My Tool',
   icon: 'MT',
   description: 'Tracks token usage from My Tool sessions',
-  dataPath: path.join(os.homedir(), '.mytool', 'sessions'),
+  dataPath: DATA_DIR,
 ```
 
 **Step 2 — Implement the interface**
 
 ```typescript
-  async isAvailable() {
-    return fs.existsSync(this.dataPath)
+  async isAvailable(): Promise<boolean> {
+    return pathExists(DATA_DIR)
   },
 
-  async collect(options = {}) {
-    const { days = 30 } = options
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-    // Read your tool's data files
-    // Apply: if (record.date < since) continue  ← on ALL loops, not just one
-    return { pluginId: 'mytool', summary: { ... }, collectedAt: new Date().toISOString() }
+  async collect(options?: CollectOptions): Promise<PluginData> {
+    const days = options?.days ?? 30
+    const cutoff = new Date(Date.now() - days * 86_400_000)
+
+    // Read your files, build a flat ConversationSummary[] (apply the cutoff here),
+    // then let the shared helper fold it into a full PluginSummary — no hand-rolling
+    // the 16 required fields (totalCostUSD, dailyCost, topTools… all get set):
+    const conversations: ConversationSummary[] = /* … parse DATA_DIR … */ []
+    if (conversations.length === 0) return emptyPluginData('mytool')
+    return buildPluginData('mytool', conversations, options)
   },
 }
 
 export default MY_TOOL_PLUGIN
 ```
+
+> Need per-tool/agent/skill/MCP/hook breakdowns like Claude? Model your `collect()` on `src/plugins/claude/index.ts` instead of using `buildPluginData`.
 
 **Step 3 — Register it**
 
@@ -258,7 +276,7 @@ import MY_TOOL_PLUGIN from './mytool'
 registry.register(MY_TOOL_PLUGIN)
 ```
 
-ControlBar, overview grid, API routes, and detail page all update automatically.
+The OffcanvasNav drawer, overview grid, API routes, and detail page all update automatically.
 
 ---
 
@@ -268,11 +286,12 @@ ControlBar, overview grid, API routes, and detail page all update automatically.
 git clone <repo>
 npm install
 npm run dev
-# open http://localhost:3000
+# open http://localhost:9295
 ```
 
 - Claude Code data appears immediately if `~/.claude/projects/` exists
-- Other tools show "not configured" until their plugin is implemented
+- Any of the 32 real integrations light up automatically once that tool's data files exist
+- Stubs (cursor, windsurf) show "not configured" until their collector is implemented
 - Full developer guide: `docs/developer-guide.md`
 - Architecture deep-dive: `docs/architecture.md`
 

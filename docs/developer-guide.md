@@ -2,6 +2,8 @@
 
 Everything you need to build, extend, and debug AI Token Tracker.
 
+> New to the codebase? Start with [`docs/project-understanding.md`](project-understanding.md) for a high-level orientation map, then come back here for the build/extend details.
+
 ---
 
 ## Prerequisites
@@ -25,7 +27,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. If you have Claude Code installed, the Claude plugin auto-detects `~/.claude/projects` and renders your data immediately.
+Open `http://localhost:9295` (dev and prod both run on port 9295). If you have Claude Code installed, the Claude plugin auto-detects `~/.claude/projects` and renders your data immediately.
 
 ---
 
@@ -47,45 +49,50 @@ aitokentracker/
 │   │       ├── summary/route.ts
 │   │       └── [pluginId]/data/route.ts
 │   ├── plugins/
-│   │   ├── index.ts                # Registers all plugins
+│   │   ├── index.ts                # Registers all 34 plugins
 │   │   ├── core/
 │   │   │   ├── types.ts            # Shared interfaces
-│   │   │   └── registry.ts         # PluginRegistry singleton
-│   │   ├── claude/
+│   │   │   ├── registry.ts         # PluginRegistry singleton
+│   │   │   └── collect.ts          # Shared helpers (buildPluginData, globFiles, parseClaudeStyleJsonl, …)
+│   │   ├── claude/                 # RICH reference plugin
 │   │   │   ├── index.ts            # ClaudePlugin implementation
-│   │   │   └── collector.ts        # Filesystem reader
-│   │   ├── codex/index.ts          # Stub
-│   │   ├── cursor/index.ts         # Stub
-│   │   ├── windsurf/index.ts       # Stub
-│   │   ├── copilot/index.ts        # Stub
-│   │   ├── kiro/index.ts           # Stub
-│   │   └── antigravity/index.ts    # Stub
+│   │   │   └── collector.ts        # Filesystem reader (tools/agents/skills/MCP/hooks/cost)
+│   │   └── codex/ … zed/           # 33 more tool plugins, one dir each (lightweight)
 │   ├── components/
 │   │   ├── charts/
 │   │   │   └── EChart.tsx          # ECharts React wrapper
-│   │   ├── dashboard/              # KPICard, charts, tables, NotificationEvaluator…
+│   │   ├── dashboard/              # KPICard, DashboardGrid, Section, ActivityHeatmap,
+│   │   │                           #   TimelineChart, CostTimeline, ModelChart, ModelStackedChart,
+│   │   │                           #   DurationHistogram, ToolCategoryDonut, TopToolsChart,
+│   │   │                           #   SubAgentChart, SkillsChart, MCPChart, HooksPanel,
+│   │   │                           #   ProjectTable, ConversationTable, TokenBreakdown,
+│   │   │                           #   PluginBanner, PluginCard, NotificationEvaluator
 │   │   ├── layout/
 │   │   │   ├── Shell.tsx           # TopBar + full-width main (no sidebar)
-│   │   │   ├── Shell.module.css
-│   │   │   ├── TopBar.tsx
-│   │   │   ├── TopBar.module.css
+│   │   │   ├── TopBar.tsx          # Wordmark + ThemeToggle + OffcanvasNav
+│   │   │   ├── OffcanvasNav.tsx    # Hamburger drawer — tool switching lives here
 │   │   │   ├── Wordmark.tsx        # HEADLESSENGINEER wordmark with Swap animation
-│   │   │   └── Wordmark.module.css
+│   │   │   ├── Footer.tsx
+│   │   │   └── *.module.css
 │   │   └── ui/
+│   │       ├── ControlBar.tsx      # Time range <select> + optional action slot (client)
+│   │       ├── RefreshButton.tsx
+│   │       ├── AutoRefresh.tsx     # Periodic router.refresh() (used on detail page)
 │   │       ├── Badge.tsx
-│   │       ├── ControlBar.tsx      # View + time range dropdowns (client)
-│   │       ├── ControlBar.module.css
 │   │       ├── Skeleton.tsx
-│   │       └── ThemeToggle.tsx
-│   └── lib/
-│       ├── format.ts
-│       ├── useChartTheme.ts        # Resolves CSS tokens → hex for ECharts
-│       └── notifications/
-│           ├── types.ts            # NotificationRule, NotificationContext, NotificationSeverity
-│           ├── rules.ts            # DAILY_TOKEN_LIMIT + DEFAULT_RULES
-│           ├── manager.ts          # NotificationManager class
-│           ├── useNotifications.ts # React hook
-│           └── index.ts
+│   │       ├── ThemeToggle.tsx
+│   │       └── TimeRangeFilter.tsx # legacy / unused
+│   ├── lib/
+│   │   ├── format.ts
+│   │   ├── useChartTheme.ts        # Resolves CSS tokens → hex for ECharts
+│   │   └── notifications/
+│   │       ├── types.ts            # NotificationRule, NotificationContext, NotificationSeverity
+│   │       ├── rules.ts            # DAILY_TOKEN_LIMIT + DEFAULT_RULES
+│   │       ├── manager.ts          # NotificationManager class
+│   │       ├── useNotifications.ts # React hook
+│   │       └── index.ts
+│   └── types/
+│       └── node-sqlite.d.ts        # Typings for the node:sqlite built-in
 ├── public/
 │   └── fonts/
 │       └── BitcountGridDouble-Variable.ttf
@@ -95,61 +102,104 @@ aitokentracker/
 └── package.json
 ```
 
+> `src/plugins/devindesktop/` exists on disk but is **not** registered in `index.ts` (orphaned — a known gap, not a working integration).
+
 ---
 
 ## Adding a New Plugin
 
-### Step 1 — Implement `TokenPlugin`
+### Two implementation flavors
+
+There are exactly two ways a plugin is built. Pick the one that matches your tool's data:
+
+- **Rich** — only `claude` (`src/plugins/claude/index.ts` + `collector.ts`). It reads `~/.claude/projects/**/*.jsonl` (including `<conv-id>/subagents/*.jsonl`), extracts every `tool_use` item, and builds the full `PluginSummary` **by hand**: `topTools` (categorized core/agent/skill/mcp/other), `subAgents` (from the Agent tool's `subagent_type`), `skills` (from the Skill tool's `skill` arg), `mcpServers` (`mcp__server__tool`), `hooks` (approximated from `~/.claude/settings.json[.local]` — Claude hooks leave no JSONL trace, so each hook's `matcher` is matched against recorded tool-call counts), plus per-entry `costUSD`.
+- **Lightweight** — everything else (33 plugins). These build on the shared helpers in `src/plugins/core/collect.ts` and let `buildPluginData()` fold a flat `ConversationSummary[]` into a complete `PluginSummary`. `buildPluginData()` fills totals, daily buckets, project/model maps, and the sorted+sliced conversation list; it leaves the extended-breakdown arrays (`topTools`/`subAgents`/`skills`/`mcpServers`/`hooks`) **empty**, `dailyCost` empty, and `totalCostUSD` `0`.
+
+Shared helpers in `core/collect.ts`:
+
+| Helper | Purpose |
+|---|---|
+| `emptyUsage()` | A zeroed `TokenUsage` |
+| `emptyPluginData(id)` | A zeroed `PluginData` (use as the "unavailable" return) |
+| `convStatus(date)` | `'active' \| 'recent' \| 'inactive'` from a last-activity date |
+| `pathExists(p)` / `statSync(p)` | Filesystem existence / safe stat |
+| `globFiles(dir, ext)` | Recursive file walk |
+| `parseClaudeStyleJsonl(raw)` | Parse Claude-shaped JSONL (`{type:'assistant', message:{usage, model}}`) |
+| `buildPluginData(id, conversations, options?)` | Fold `ConversationSummary[]` → `PluginData` |
+
+SQLite-backed plugins read via the built-in `node:sqlite` module (typed in `src/types/node-sqlite.d.ts`): `antigravity`, `devin`, `goose`, `hermes`, `kilo`, `micode`, `opencode`, `zed`. `codex` is a special case — it parses OpenAI Codex delta-encoded `token_count` events and dedupes `~/.codex/sessions` + `archived_sessions` (honouring the `CODEX_HOME` env var).
+
+### Pick your starting point — clone an existing plugin
+
+| Your tool's data looks like… | Clone / model on |
+|---|---|
+| Claude-style JSONL logs | `qwen` or `commandcode` (or `parseClaudeStyleJsonl` + `buildPluginData`) |
+| Delta-encoded / custom JSONL | `codex` |
+| Per-session JSON directory | `amp` or `mux` |
+| SQLite database | `goose`, `zed`, or `hermes` (`node:sqlite`) |
+| Rich tool/agent/skill/MCP/hook extraction | `claude` |
+
+### Step 1 — Implement `TokenPlugin` (lightweight path)
+
+The `TokenPlugin` interface (`src/plugins/core/types.ts`):
+
+```typescript
+interface TokenPlugin {
+  readonly id: string
+  readonly name: string
+  readonly icon: string
+  readonly description: string
+  readonly dataPath: string
+  isAvailable: () => Promise<boolean>
+  collect: (options?: CollectOptions) => Promise<PluginData>
+  getDashboardSections?: () => DashboardSection[]  // OPTIONAL — currently unused by every plugin/page (latent extension point)
+}
+```
+
+`CollectOptions = { days?: number; limit?: number }` with defaults `days = 30`, `limit = 100`.
 
 Create `src/plugins/<toolid>/index.ts`:
 
 ```typescript
-import type { TokenPlugin, PluginData, CollectOptions } from '../core/types'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
+import { buildPluginData, emptyPluginData, pathExists, convStatus } from '../core/collect'
+
+const DATA_DIR = '/Users/<user>/.mytool/data'
 
 const MY_PLUGIN: TokenPlugin = {
   id: 'mytool',
   name: 'My Tool',
   icon: 'M',
   description: 'Tracks token usage from My Tool sessions',
-  dataPath: '/Users/<user>/.mytool/data',
+  dataPath: DATA_DIR,
 
   async isAvailable(): Promise<boolean> {
-    return fs.existsSync(this.dataPath)
+    return pathExists(DATA_DIR)
   },
 
-  async collect(options: CollectOptions = {}): Promise<PluginData> {
-    const { days = 30 } = options
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  async collect(options?: CollectOptions): Promise<PluginData> {
+    if (!(await pathExists(DATA_DIR))) return emptyPluginData('mytool')
 
-    // Read your tool's data files here
-    // Filter all records by: if (record.date < since) continue
+    const conversations: ConversationSummary[] = []
+    // ...read + parse your tool's files, pushing one ConversationSummary per session:
+    //   { id, project, messageCount, tokens, model, lastActivity, created,
+    //     status: convStatus(lastActivity) }
 
-    return {
-      pluginId: 'mytool',
-      summary: {
-        totalTokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-        totalConversations: 0,
-        activeConversations: 0,
-        topProjects: [],
-        topModels: [],
-        dailyActivity: [],
-        lastActivity: null,
-        conversations: [],
-        topTools: [],
-        subAgents: [],
-        skills: [],
-        mcpServers: [],
-        hooks: [],
-      },
-      collectedAt: new Date().toISOString(),
-    }
+    // buildPluginData fills totals, daily buckets, project/model maps, and the
+    // conversation list. It respects options.limit; it does NOT date-filter —
+    // pre-filter `conversations` by options.days yourself if you need it.
+    return buildPluginData('mytool', conversations, options)
   },
 }
 
 export default MY_PLUGIN
 ```
 
-**Critical:** Apply the `since` date gate at the top of every loop, not just one aggregation bucket. Forgetting this causes the time range dropdown to update only charts that explicitly filter themselves (daily activity) while all other charts show all-time data.
+**Why `buildPluginData()`?** `PluginSummary` has 16 required fields — `totalTokens`, `totalCostUSD`, `totalConversations`, `activeConversations`, `topProjects`, `topModels`, `dailyActivity`, `dailyCost`, `lastActivity`, `conversations`, `topTools`, `subAgents`, `skills`, `mcpServers`, `hooks`. Under TypeScript strict, **every one** must be present or it will not compile. Hand-building the object is error-prone (it is easy to forget `totalCostUSD` and `dailyCost`); let the helper do it.
+
+For the **rich path**, skip `buildPluginData()` and construct the summary yourself — see `src/plugins/claude/index.ts` for the reference.
+
+**Time-range note:** `buildPluginData()` does not apply the `days` cutoff. If your tool's records carry timestamps, filter your `conversations` array (or the raw records) by `options.days` before handing them over, otherwise the time-range dropdown will not affect this plugin.
 
 ### Step 2 — Register the plugin
 
@@ -160,7 +210,7 @@ import MY_PLUGIN from './mytool'
 registry.register(MY_PLUGIN)
 ```
 
-The ControlBar view dropdown, overview page plugin cards, and all `/api/*` routes pick it up automatically.
+The OffcanvasNav drawer, overview page plugin cards, and all `/api/*` routes pick it up automatically.
 
 ---
 
@@ -219,18 +269,52 @@ echarts: 'var(--fg)' is an illegal color value, fallback to '#000000'
 
 `useChartTheme` reads resolved values via `getComputedStyle(document.body)` and re-reads them whenever the dark-mode class is toggled on `<body>`.
 
-### 3. Render in a page
+### 3. Add it to the page's widget array
+
+Pages no longer render `<Section>` blocks directly. Both `app/page.tsx` (overview) and `app/[pluginId]/page.tsx` (detail) build a `WidgetDef[]` and hand it to `<DashboardGrid>`. Widgets are built **conditionally** — only push a widget when it has data:
 
 ```typescript
 // In src/app/[pluginId]/page.tsx (server component)
+import { DashboardGrid, type WidgetDef } from '@/components/dashboard/DashboardGrid'
 import MyChart from '@/components/dashboard/MyChart'
-import Section from '@/components/dashboard/Section'
 
-// Inside the JSX:
-<Section title="My Section">
-  <MyChart data={data.summary.myData} />
-</Section>
+const widgets: WidgetDef[] = []
+
+if (data.summary.myData.length > 0) {
+  widgets.push({
+    id: 'my-chart',
+    content: <MyChart data={data.summary.myData} />,
+    defaultPos: { x: 0, y: 0, w: 6, h: 5, minW: 4, minH: 3 },
+  })
+}
+
+// ...later in the JSX:
+<DashboardGrid widgets={widgets} pluginId={pluginId} />
 ```
+
+See [Dashboard Grid](#dashboard-grid) below for how positions, breakpoints, and persistence work.
+
+---
+
+## Dashboard Grid
+
+`src/components/dashboard/DashboardGrid.tsx` (client) wraps **react-grid-layout** (the legacy build, `react-grid-layout/legacy`, package version `2.2.3`). Each page passes a `WidgetDef[]`:
+
+```typescript
+type WidgetDef = {
+  id: string
+  content: React.ReactNode
+  defaultPos: { x: number; y: number; w: number; h: number; minW?: number; minH?: number }
+}
+```
+
+Behaviour:
+
+- An **"Edit layout"** toggle turns drag + resize on; **"Done editing"** turns it off. A **"Reset layout"** button appears in edit mode.
+- Layouts persist **per-plugin** to `localStorage` under `aitokentracker-layout-<pluginId>` (the overview uses `pluginId="overview"`). Newly added widgets are merged into a saved layout (appended at the bottom); "Reset layout" clears the stored key.
+- Responsive config: breakpoints `lg 1280 / md 768 / sm 480 / xs 0`, cols `12 / 12 / 6 / 4`, `rowHeight 80`.
+
+Adding a chart therefore means adding a `WidgetDef` entry to the page's widget array — not rendering a component in the JSX tree directly.
 
 ---
 
@@ -238,10 +322,13 @@ import Section from '@/components/dashboard/Section'
 
 The time range is stored as a URL query parameter: `?days=N`. Selecting a new range from the ControlBar calls `router.push(path + '?days=' + N)`, which triggers a full server re-render.
 
-On the server, time range is read via:
+Valid values are `VALID_DAYS = [1, 7, 15, 30, 60, 90]` (defined in both `app/page.tsx` and `app/[pluginId]/page.tsx`); the default is `30`. **There is no 14-day option.** Any `?days=` value outside this set falls back to the default.
+
+On the server, time range is read and validated via:
 
 ```typescript
-const days = Number(searchParams.days) || 30
+const VALID_DAYS = [1, 7, 15, 30, 60, 90] as const
+const days = /* parsed from searchParams, clamped to VALID_DAYS, else 30 */ 30
 const data = await plugin.collect({ days })
 ```
 
@@ -261,18 +348,32 @@ Do **not** apply the filter only to one bucket (e.g., `dailyActivity`). That cau
 
 ## Navigation and ControlBar
 
-The `ControlBar` component (`src/components/ui/ControlBar.tsx`) is a `"use client"` component rendered as the first child in every page's content area. It replaces the former sidebar navigation.
+Navigation and the time-range control are now **two separate components**. There is **no sidebar** and there is **no view selector** — tool switching lives in the off-canvas drawer.
 
-It receives:
-- `plugins: PluginStatus[]` — list of all registered plugins (builds the view dropdown)
-- `activePluginId?: string` — current plugin ID (undefined for overview)
+### TopBar
+
+`src/components/layout/TopBar.tsx` renders `Wordmark` + `ThemeToggle` + `OffcanvasNav`.
+
+### OffcanvasNav — tool switching
+
+`src/components/layout/OffcanvasNav.tsx` (`"use client"`) is a hamburger drawer. It lists **Overview** plus **every registered plugin** (unavailable ones dimmed). It handles ESC / backdrop close and focus management. **This is where a newly registered plugin appears in the navigation** — no other wiring is needed.
+
+Props: `plugins: PluginStatus[]`, `activePluginId?: string`, `selectedDays: number`.
+
+### ControlBar — time range + refresh
+
+`src/components/ui/ControlBar.tsx` (`"use client"`) no longer has a view selector and no longer receives a `plugins` prop. Its current props are:
+
+- `activePluginId?: string` — current plugin ID (undefined on overview); used to build the navigation target
 - `selectedDays: number` — current days filter (from server-parsed searchParams)
+- `dataPath?: string` — optional label shown on the right
+- `action?: React.ReactNode` — optional slot (the pages pass `<RefreshButton />`)
 
-It renders two `<select>` dropdowns side by side:
-- **View selector** — Overview + each plugin. Navigates to `/?days=N` or `/${pluginId}?days=N`
-- **Days selector** — 1, 7, 14, 15, 30, 60, 90 days. Navigates to current path with new `?days=` value
+It renders **one** time-range `<select>` (the `VALID_DAYS` options), plus an optional action slot and `dataPath` label. Changing the range calls `router.push(\`${path}?days=${value}\`)`. `useSearchParams` is not used — `selectedDays` is passed as a prop from the server-rendered parent.
 
-Navigation uses `useRouter().push()`. `useSearchParams` is not used — `selectedDays` is passed as a prop from the server-rendered parent.
+### AutoRefresh
+
+`RefreshButton` triggers a manual `router.refresh()`. In addition, the detail page (`app/[pluginId]/page.tsx`) renders `<AutoRefresh intervalMs={5000} />`, which re-fetches server data every 5 seconds so live token counts stay current while the page is open.
 
 ---
 
@@ -362,9 +463,10 @@ All styling uses CSS custom properties defined in `src/app/globals.css`. Never u
 --elevated            /* TopBar, card hover, select backgrounds */
 --surface-card        /* Card surface */
 --border              /* Dividers, input borders */
---primary: #009999    /* The one accent colour */
---primary-tint        /* rgba(0,153,153,0.1) */
---primary-tint-hover  /* rgba(0,153,153,0.15) */
+--accent-brand: #008383         /* The one accent primitive (fixed) */
+--primary: var(--accent-brand)  /* Semantic accent — resolves to --accent-brand */
+--primary-tint        /* color-mix(in srgb, var(--primary) 10%, transparent) */
+--primary-tint-hover  /* color-mix(in srgb, var(--primary) 15%, transparent) */
 
 /* Font size */
 --font-size-2xs  /* 11px */
@@ -416,7 +518,7 @@ All styling uses CSS custom properties defined in `src/app/globals.css`. Never u
 
 /* Shadows */
 --shadow-sm         /* 0 1px 4px rgba(0,0,0,0.08) */
---shadow-card-hover /* 0 4px 24px rgba(0,153,153,0.18) */
+--shadow-card-hover /* 0 4px 24px rgba(0, 131, 131,0.18) */
 
 /* Component sizes */
 --size-icon-btn  /* 36px */
@@ -438,7 +540,7 @@ All styling uses CSS custom properties defined in `src/app/globals.css`. Never u
 
 /* Layout */
 --topbar-height  /* 56px */
---max-width      /* 1400px */
+--max-width      /* 1280px */
 
 /* Motion */
 --duration-fast    /* 100ms */
@@ -456,7 +558,7 @@ All styling uses CSS custom properties defined in `src/app/globals.css`. Never u
 
 ### Design invariants
 
-1. **Monochrome + one accent.** `#009999` is the only non-greyscale colour.
+1. **Monochrome + one accent.** `--accent-brand` (`#008383`) is the only non-greyscale colour.
 2. **Borderless surfaces.** Differentiate fill levels by background colour — no border-bottom on the TopBar or surface edges.
 3. **No hardcoded values.** Every dimension, colour, radius, font size, and spacing value must reference a token.
 4. **`prefers-reduced-motion`** must be respected in any animation or transition.
@@ -496,23 +598,25 @@ The component is a server component — no `useState`, no `useEffect`.
 
 ## Dark Mode
 
-Dark mode is a `.dark` class on `<body>`. `ThemeToggle` adds/removes it with `localStorage` persistence.
+Dark mode is a `dark-mode` class on `<body>` (selector `body.dark-mode`, **not** `.dark`). `ThemeToggle` (`src/components/ui/ThemeToggle.tsx`) toggles it via `document.body.classList.toggle('dark-mode', …)` and persists the choice to `localStorage` under `STORAGE_KEY = 'headlessengineer-theme'`. On first load, with no stored value it falls back to the `prefers-color-scheme: dark` media query.
 
-Dark-mode overrides are defined under `.dark { ... }` in `globals.css`.
+Dark-mode overrides are defined under `body.dark-mode { ... }` in `globals.css`.
 
-`useChartTheme` watches for class changes on `<body>` via `MutationObserver` so charts re-render with correct colours on toggle.
+`useChartTheme` watches for class changes on `document.body` via a `MutationObserver` so charts re-resolve their token colours and re-render on toggle.
 
 ---
 
 ## API Routes
 
+All routes are **GET only** and export `export const dynamic = 'force-dynamic'` to prevent static caching.
+
 | Route | Returns |
 |---|---|
 | `GET /api/plugins` | `PluginStatus[]` |
-| `GET /api/summary?days=N` | Aggregated summary across all available plugins |
-| `GET /api/:pluginId/data?days=N` | Full `PluginData` for one plugin |
+| `GET /api/summary?days=N` | Aggregated tokens + a `perPlugin` map across all available plugins |
+| `GET /api/[pluginId]/data?days=N&limit=M` | Full `PluginData` for one plugin — `404` unknown plugin, `503` unavailable, `500` on collection error |
 
-Each route exports `export const dynamic = 'force-dynamic'` to prevent static caching.
+> The pages do **not** call these routes. Both `app/page.tsx` and `app/[pluginId]/page.tsx` call the plugin registry directly server-side. The routes exist for external / programmatic use and for client-side refresh.
 
 ---
 
@@ -547,8 +651,8 @@ Each route exports `export const dynamic = 'force-dynamic'` to prevent static ca
 ## Scripts
 
 ```bash
-npm run dev    # Dev server at localhost:3000
+npm run dev    # Dev server at localhost:9295
 npm run build  # Production build
-npm run start  # Production server
+npm run start  # Production server at localhost:9295
 npm run lint   # ESLint check
 ```

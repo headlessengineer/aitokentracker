@@ -30,7 +30,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:9295](http://localhost:9295).
 
 The overview dashboard loads immediately. If Claude Code is installed and has been used, token data populates automatically from `~/.claude/projects/`.
 
@@ -38,16 +38,22 @@ The overview dashboard loads immediately. If Claude Code is installed and has be
 
 ## Supported Tools
 
-| Tool | Status | Data Source |
-|---|---|---|
-| Claude Code | **Active** | `~/.claude/projects/**/*.jsonl` |
-| OpenAI Codex | Coming soon | — |
-| Cursor | Coming soon | — |
-| Windsurf | Coming soon | — |
-| GitHub Copilot | Coming soon | — |
-| Kiro | Coming soon | — |
+**34 tool plugins are registered** (`src/plugins/index.ts`). Of these, **32 are real integrations** that read a live data path and detect their own availability, and **2 are placeholders** (`cursor`, `windsurf` — `isAvailable()` returns `false`, empty data path). Every registered tool appears in the off-canvas navigation drawer; tools with no data on the machine are shown dimmed as "not configured".
 
-Tools marked "Coming soon" appear in the UI as "Not configured" cards. They activate automatically once their plugin is implemented and their data path is available on the machine.
+Claude Code is the deep-analytics reference integration:
+
+| Tool | Level | Data Source |
+|---|---|---|
+| Claude Code | **Rich** (tools, sub-agents, skills, MCP servers, hooks, cost) | `~/.claude/projects/**/*.jsonl` |
+| OpenAI Codex | Real — delta-encoded token-count sessions | `~/.codex/sessions` + `archived_sessions` |
+| Qwen, CommandCode, … | Real — Claude-style JSONL logs | per-tool log dir |
+| Amp, Mux, … | Real — per-session JSON directory | per-tool session dir |
+| Goose, Zed, Hermes, Antigravity, Devin, Kilo, MiCode, OpenCode | Real — SQLite database (`node:sqlite`) | per-tool `.db` |
+| Cursor, Windsurf | Placeholder — not yet implemented | — |
+
+The remaining real integrations (Gemini, Copilot, Kiro, Cline, RooCode, KiloCode, Openclaw, Pi, Codebuddy, GJC, ZCode, OpenCodeReview, Kimi, Junie, Grok, JCode, Codebuff, Droid, Zed, and more) follow the same lightweight pattern. See `docs/developer-guide.md` for the full plugin authoring guide.
+
+> Known gap: `src/plugins/devindesktop/` exists on disk but is **not** imported or registered in `src/plugins/index.ts`, so it does not appear in the app.
 
 ---
 
@@ -56,11 +62,12 @@ Tools marked "Coming soon" appear in the UI as "Not configured" cards. They acti
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 16.2.10 (App Router) |
-| Runtime | React 19, TypeScript (strict) |
-| Charts | ECharts 6 (custom React wrapper, SVG renderer) |
+| Runtime | React 19.2.4, TypeScript 5 (strict) |
+| Charts | ECharts 6.1.0 (custom React wrapper, SVG renderer) |
+| Dashboard layout | react-grid-layout 2.2.3 (draggable / resizable widget grid) |
 | Styling | CSS Modules + CSS custom properties (no Tailwind) |
 | Fonts | Inter (UI), JetBrains Mono (code) |
-| Data | Local filesystem — no DB, no ORM |
+| Data | Local filesystem — no DB, no ORM, no auth |
 | Auth | None |
 
 ---
@@ -70,55 +77,64 @@ Tools marked "Coming soon" appear in the UI as "Not configured" cards. They acti
 ```
 src/
 ├── app/                    # Next.js App Router pages and API routes
-│   ├── page.tsx            # Overview dashboard
-│   ├── [pluginId]/         # Per-tool detail page
+│   ├── page.tsx            # Overview dashboard (builds WidgetDef[])
+│   ├── [pluginId]/         # Per-tool detail page (builds WidgetDef[])
 │   └── api/                # Route handlers (plugins, summary, [pluginId]/data)
 ├── plugins/                # Plugin system
-│   ├── core/               # TokenPlugin interface + registry
-│   ├── claude/             # Claude Code plugin (active)
-│   ├── codex/              # Placeholder
-│   ├── cursor/             # Placeholder
-│   ├── windsurf/           # Placeholder
-│   ├── copilot/            # Placeholder
-│   ├── kiro/               # Placeholder
-│   └── index.ts            # Registers all plugins
+│   ├── core/               # TokenPlugin interface, registry, shared collect.ts helpers
+│   ├── claude/             # Rich reference plugin (index.ts + collector.ts)
+│   ├── codex/ … zed/       # 34 tool plugins, one directory each
+│   └── index.ts            # Registers all 34 plugins
 ├── components/
-│   ├── layout/             # Shell, Sidebar, TopBar
-│   ├── dashboard/          # KPICard, charts, tables, panels
+│   ├── layout/             # Shell, TopBar, OffcanvasNav, Wordmark, Footer
+│   ├── dashboard/          # KPICard, DashboardGrid, charts, tables, panels
 │   ├── charts/             # EChart wrapper
-│   └── ui/                 # Badge, Skeleton, ThemeToggle, TimeRangeFilter
-└── lib/                    # format.ts utilities
+│   └── ui/                 # ControlBar, RefreshButton, AutoRefresh, Badge, Skeleton, ThemeToggle
+├── lib/                    # format.ts, useChartTheme.ts, notifications/
+└── types/                  # node-sqlite.d.ts (typings for node:sqlite)
 ```
 
 ---
 
 ## Adding a New Tool (Plugin)
 
+Most tools are **lightweight** plugins: read your files into a flat `ConversationSummary[]`, then let the shared `buildPluginData()` helper fold it into a complete `PluginSummary` (totals, daily buckets, project/model maps, sorted conversations). This avoids hand-building the summary — every required field would otherwise have to be present or TypeScript strict fails to compile.
+
 **Step 1.** Create `src/plugins/<toolid>/index.ts`:
 
 ```typescript
-import fs from 'fs'
-import type { TokenPlugin, PluginData, CollectOptions } from '../core/types'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
+import { buildPluginData, emptyPluginData, pathExists, convStatus } from '../core/collect'
+
+const DATA_DIR = '/path/to/mytool/data'
 
 const MY_TOOL_PLUGIN: TokenPlugin = {
   id: 'mytool',
   name: 'My Tool',
   icon: 'MT',
   description: 'Tracks token usage from My Tool sessions',
-  dataPath: '/path/to/mytool/data',
+  dataPath: DATA_DIR,
 
-  async isAvailable() {
-    return fs.existsSync(this.dataPath)
+  async isAvailable(): Promise<boolean> {
+    return pathExists(DATA_DIR)
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
-    // Read your tool's files and return a PluginData object
-    // See src/plugins/claude/index.ts for a full example
+    if (!(await pathExists(DATA_DIR))) return emptyPluginData('mytool')
+
+    const conversations: ConversationSummary[] = [
+      // ...map your parsed files into ConversationSummary objects
+      // (use convStatus(lastActivity) for the status field)
+    ]
+
+    return buildPluginData('mytool', conversations, options)
   },
 }
 
 export default MY_TOOL_PLUGIN
 ```
+
+For **rich** integrations (per-tool/agent/skill/MCP/hook breakdowns and per-entry cost), model your plugin on `src/plugins/claude/index.ts` + `collector.ts`, which build the full `PluginSummary` by hand.
 
 **Step 2.** Register in `src/plugins/index.ts`:
 
@@ -127,7 +143,7 @@ import MY_TOOL_PLUGIN from './mytool'
 registry.register(MY_TOOL_PLUGIN)
 ```
 
-**Step 3.** Run `npm run dev` — your tool appears in the sidebar and overview immediately.
+**Step 3.** Run `npm run dev` — your tool appears in the off-canvas navigation drawer and overview immediately.
 
 See [`docs/developer-guide.md`](docs/developer-guide.md) for the full `PluginSummary` shape, chart configuration, and a Claude plugin walkthrough.
 
@@ -137,6 +153,7 @@ See [`docs/developer-guide.md`](docs/developer-guide.md) for the full `PluginSum
 
 | Document | Description |
 |---|---|
+| [`docs/project-understanding.md`](docs/project-understanding.md) | **Start here** — orientation map of the whole codebase |
 | [`docs/product-guide.md`](docs/product-guide.md) | Features, dashboard walkthrough, token type explainer, FAQ |
 | [`docs/developer-guide.md`](docs/developer-guide.md) | Plugin interface, adding tools, configuring charts |
 | [`docs/architecture.md`](docs/architecture.md) | System architecture with diagrams |
