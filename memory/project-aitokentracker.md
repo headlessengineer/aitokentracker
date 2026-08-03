@@ -20,8 +20,13 @@ Multi-tool AI token tracker built in Next.js 16 App Router (src/app). Plugin arc
 
 ## Active Plugins
 
-- **claude** — fully implemented; reads `~/.claude/projects/**/*.jsonl`
-- **codex, cursor, windsurf, copilot, kiro** — placeholder plugins (isAvailable returns false; shows "Not configured" UI)
+- **34 plugins registered** in `src/plugins/index.ts` (as of 2026-08-03).
+- **claude** — rich reference impl (own `collector.ts`; extracts tools/sub-agents/skills/MCP/hooks/cost from `~/.claude/projects/**/*.jsonl`).
+- **~32 real integrations** — each has a real `dataPath` + `isAvailable` check. Two implementation flavors: JSONL/session-dir readers using shared `core/collect.ts` helpers (`buildPluginData`, `parseClaudeStyleJsonl`, `globFiles`), and SQLite-backed readers via `node:sqlite` (antigravity, devin, goose, hermes, kilo, micode, opencode, zed).
+- **cursor, windsurf** — the only hard placeholders (`isAvailable()` returns false).
+- **devindesktop** — dir exists but is NOT registered in `index.ts` (orphaned).
+
+See `docs/project-understanding.md` for the full code-verified orientation map.
 
 ## Routes
 
@@ -33,7 +38,7 @@ Multi-tool AI token tracker built in Next.js 16 App Router (src/app). Plugin arc
 
 ## Design
 
-Follows headlessengineer design system: teal `#009999` accent, Inter font, monochrome neutral ramp, CSS custom properties in `globals.css`. Dark mode via `body.dark-mode` class, toggled by `ThemeToggle` client component.
+Follows headlessengineer design system: teal accent `--accent-brand: #008383` (`--primary` resolves to it), Inter font, monochrome neutral ramp, CSS custom properties in `globals.css`. Dark mode via `body.dark-mode` class, toggled by `ThemeToggle` client component. (Canonical accent is `#008383` — the design-system/brand skills and docs were updated repo-wide from the old teal to match.)
 
 ## Tech
 
