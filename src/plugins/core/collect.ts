@@ -167,8 +167,14 @@ export async function globFiles(baseDir: string, ext: string): Promise<string[]>
 
 /**
  * Parse a Claude-style JSONL file (used by Claude Code, Codex, Qwen, CommandCode, etc.).
- * Each line: { type: 'assistant', message: { usage: {...}, model: string } }
+ * Each line: { type: 'assistant', message: { id, usage: {...}, model: string } }
  * Returns { inputTokens, outputTokens, cacheRead, cacheWrite, model, messageCount }
+ *
+ * Pass a shared `seen` set across all of a plugin's files to skip duplicate
+ * assistant messages (same `message.id`). Claude-style logs re-record the same
+ * message on session resume and across sub-agent/parent transcripts; counting
+ * every copy roughly doubles tokens. Omitting `seen` still dedupes within a
+ * single file.
  */
 export interface JsonlUsage {
   inputTokens: number
@@ -182,6 +188,7 @@ export interface JsonlUsage {
 interface JsonlLine {
   type?: string
   message?: {
+    id?: string
     usage?: {
       input_tokens?: number
       output_tokens?: number
@@ -193,7 +200,7 @@ interface JsonlLine {
   cwd?: string
 }
 
-export function parseClaudeStyleJsonl(raw: string): JsonlUsage {
+export function parseClaudeStyleJsonl(raw: string, seen: Set<string> = new Set()): JsonlUsage {
   let inputTokens = 0, outputTokens = 0, cacheRead = 0, cacheWrite = 0
   let model = ''
   let messageCount = 0
@@ -207,6 +214,11 @@ export function parseClaudeStyleJsonl(raw: string): JsonlUsage {
       continue
     }
     if (obj.type !== 'assistant' || !obj.message) continue
+    const id = obj.message.id
+    if (id) {
+      if (seen.has(id)) continue
+      seen.add(id)
+    }
     const u = obj.message.usage
     if (u) {
       inputTokens += u.input_tokens ?? 0

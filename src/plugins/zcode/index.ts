@@ -25,6 +25,7 @@ const ZCODE_PLUGIN: TokenPlugin = {
     if (files.length === 0) return emptyPluginData('zcode')
 
     const conversations: ConversationSummary[] = []
+    const seen = new Set<string>()
 
     for (const file of files) {
       let stat: Awaited<ReturnType<typeof fs.stat>>
@@ -34,7 +35,7 @@ const ZCODE_PLUGIN: TokenPlugin = {
       let raw: string
       try { raw = await fs.readFile(file, 'utf-8') } catch { continue }
 
-      const { inputTokens, outputTokens, cacheRead, cacheWrite, model, messageCount } = parseClaudeStyleJsonl(raw)
+      const { inputTokens, outputTokens, cacheRead, cacheWrite, model, messageCount } = parseClaudeStyleJsonl(raw, seen)
       if (inputTokens + outputTokens === 0) continue
 
       const rel = path.relative(DATA_DIR, file)

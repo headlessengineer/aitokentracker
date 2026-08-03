@@ -18,6 +18,7 @@ export interface ClaudeJournalEntry {
   sessionId?: string
   cwd?: string
   message?: {
+    id?: string
     role?: string
     model?: string
     content?: string | ContentItem[]
@@ -26,9 +27,12 @@ export interface ClaudeJournalEntry {
       output_tokens?: number
       cache_creation_input_tokens?: number
       cache_read_input_tokens?: number
+      cache_creation?: {
+        ephemeral_5m_input_tokens?: number
+        ephemeral_1h_input_tokens?: number
+      }
     }
   }
-  costUSD?: number
   isSidechain?: boolean
 }
 

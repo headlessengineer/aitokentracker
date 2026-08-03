@@ -19,6 +19,7 @@ import type {
   ToolCategory,
 } from '../core/types'
 import { collectConversations, collectHookDefinitions, type ContentItem } from './collector'
+import { costForUsage } from './pricing'
 
 function emptyUsage(): TokenUsage {
   return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
@@ -75,6 +76,13 @@ const CLAUDE_PLUGIN: TokenPlugin = {
     const ACTIVE_MS = 5 * 60 * 1000
     const RECENT_MS = 60 * 60 * 1000
 
+    // Claude Code logs the same assistant message more than once — sub-agent
+    // turns appear both inline (isSidechain) in the parent transcript and again
+    // in the separate subagents/*.jsonl files, and resumed sessions re-log prior
+    // turns. Counting every copy roughly doubles tokens and cost, so dedupe by
+    // message.id across the whole collection (matches how ccusage counts).
+    const seenMessageIds = new Set<string>()
+
     for (const conv of rawConversations) {
       if (conv.lastModified < since) continue
 
@@ -84,9 +92,14 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       let messageCount = 0
 
       for (const entry of conv.entries) {
-        if (entry.costUSD) convCostUSD += entry.costUSD
-
         if (entry.type !== 'assistant' || !entry.message) continue
+
+        // Skip duplicate log lines (same assistant message id seen already)
+        const msgId = entry.message.id
+        if (msgId) {
+          if (seenMessageIds.has(msgId)) continue
+          seenMessageIds.add(msgId)
+        }
 
         // Token usage
         const u = entry.message.usage
@@ -101,6 +114,10 @@ const CLAUDE_PLUGIN: TokenPlugin = {
           convTokens.cacheRead += cacheRead
           convTokens.total += input + output + cacheWrite + cacheRead
           messageCount++
+
+          // Cost is not recorded in the JSONL — estimate it from usage x
+          // per-model pricing (see ./pricing.ts).
+          convCostUSD += costForUsage(entry.message.model ?? '', u)
         }
 
         if (entry.message.model && !primaryModel) {
