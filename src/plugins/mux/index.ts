@@ -1,8 +1,13 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, pathExists, convStatus,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const SESSIONS_DIR = path.join(os.homedir(), '.mux', 'sessions')
 
@@ -25,13 +30,13 @@ const MUX_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from Mux AI coding sessions (~/.mux/sessions)',
   dataPath: SESSIONS_DIR,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(SESSIONS_DIR)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(SESSIONS_DIR))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
 
     let workspaceDirs: string[]
     try { workspaceDirs = await fs.readdir(SESSIONS_DIR) } catch { return emptyPluginData('mux') }

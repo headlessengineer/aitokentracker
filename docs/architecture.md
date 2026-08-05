@@ -145,7 +145,7 @@ graph TD
     TCD["ToolCategoryDonut\n[client — ECharts]"]
     DH["DurationHistogram\n[client — ECharts]"]
     HP["HooksPanel\n[server]"]
-    CT["ConversationTable\n[server]"]
+    CT["ConversationTable\n[client — keyboard nav + search]"]
     PT["ProjectTable\n[server]"]
     EC["EChart wrapper\n[client]"]
     NE["NotificationEvaluator\n[client]"]
@@ -266,11 +266,14 @@ classDiagram
         buildPluginData for aggregation
     }
 
-    class PlaceholderPlugin {
-        <<2 plugins — cursor, windsurf>>
-        +isAvailable() false (hard-coded)
-        +dataPath = ""
-        +collect() emptyPluginData
+    class CursorPlugin {
+        <<cursor — API auth CSV reader>>
+        Reads Cursor usage CSV via auth token from state.vscdb
+        Manages its own 1-hour CSV cache
+    }
+    class WindsurfPlugin {
+        <<windsurf — VS Code globalStorage>>
+        Scans Windsurf globalStorage for Cline-style ui_messages.json
     }
 
     class PluginCore {
@@ -287,13 +290,14 @@ classDiagram
     TokenPlugin <|.. ClaudePlugin
     TokenPlugin <|.. LightweightPlugin
     TokenPlugin <|.. SQLitePlugin
-    TokenPlugin <|.. PlaceholderPlugin
+    TokenPlugin <|.. CursorPlugin
+    TokenPlugin <|.. WindsurfPlugin
     LightweightPlugin ..> PluginCore : uses
     SQLitePlugin ..> PluginCore : uses
     PluginRegistry "1" --> "*" TokenPlugin : holds
 ```
 
-> **Known gap:** `src/plugins/devindesktop/` exists on disk but is not registered — it re-exports `DEVIN_PLUGIN` (which itself handles both CLI SQLite and Desktop NDJSON) and is never imported in `src/plugins/index.ts`.
+> **Note:** `src/plugins/devindesktop/` re-exports the `devin` plugin and is registered. It is an alias, not a separate plugin class.
 
 ---
 
@@ -419,7 +423,10 @@ aitokentracker/
 │   │   └── api/
 │   │       ├── plugins/route.ts         # GET → PluginStatus[]
 │   │       ├── summary/route.ts         # GET ?days=N → aggregated summary
-│   │       └── [pluginId]/data/route.ts # GET ?days=N → PluginData
+│   │       ├── [pluginId]/data/route.ts # GET ?days=N → PluginData
+│   │       ├── cache/clear/route.ts     # POST → invalidate SQLite data cache
+│   │       ├── export/route.ts          # GET → CSV/JSON download
+│   │       └── stream/route.ts          # GET (SSE) → chokidar file-change push
 │   │
 │   ├── plugins/
 │   │   ├── index.ts                     # Registers all 34 plugins; single import point
@@ -473,7 +480,8 @@ aitokentracker/
 │   │       ├── ControlBar.tsx           # Time-range <select> + optional action slot
 │   │       │                            #   + dataPath label (client)
 │   │       ├── RefreshButton.tsx        # Manual refresh trigger (client, useTransition)
-│   │       ├── AutoRefresh.tsx          # Periodic auto-refresh every N ms (client)
+│   │       ├── LiveUpdater.tsx          # SSE consumer → router.refresh() on file change (client)
+│   │       ├── ExportButton.tsx         # Triggers /api/export download (client)
 │   │       ├── Skeleton.tsx             # Loading skeleton shimmer
 │   │       ├── ThemeToggle.tsx          # Light/dark toggle (client)
 │   │       └── TimeRangeFilter.tsx      # Legacy pill selector — kept but not used in pages
@@ -485,6 +493,10 @@ aitokentracker/
 │   └── lib/
 │       ├── format.ts                    # formatTokens, formatRelativeTime, formatNumber
 │       ├── useChartTheme.ts             # Hook: resolves CSS tokens → hex via getComputedStyle(body)
+│       ├── cache.ts                     # SQLite data cache — mtime-based invalidation
+│       ├── watcher.ts                   # chokidar singleton for SSE stream
+│       ├── pricing.ts                   # getCostUSD(model, tokens) — unified across all plugins
+│       ├── limits.ts                    # readAllLimits() — Claude rate-limit counters (5-min cache)
 │       └── notifications/
 │           ├── types.ts                 # NotificationRule, NotificationContext, NotificationSeverity
 │           ├── rules.ts                 # DAILY_TOKEN_LIMIT (50M) + DEFAULT_RULES array
@@ -515,13 +527,13 @@ aitokentracker/
 
 ---
 
-### 2. No cache layer
+### 2. SQLite data cache
 
-**Decision:** No in-memory or Redis cache. Every request re-reads the filesystem.
+**Decision:** A mtime-based SQLite cache at `~/.config/aitokentracker/cache.db` stores serialized `PluginData` keyed by plugin ID + days window. Entries are invalidated when the plugin's data files change (checked via `fs.statSync` comparing `mtimeMs`).
 
-**Rationale:** JSONL files are written continuously by AI tools. A cache would either show stale data or require invalidation logic. File reads on a local SSD for ~500 conversations take <100ms — caching adds complexity for negligible gain.
+**Rationale:** JSONL files are written continuously by AI tools. A pure no-cache approach scales linearly with conversation count — unacceptable once Claude histories exceed a few thousand entries. `mtime` comparison keeps freshness guarantees: if a file changed since the last collect, the cache entry is discarded and data is re-read from scratch.
 
-**Trade-off:** Cold-start latency scales linearly with conversation count. Future mitigation: incremental read using `mtime` filtering.
+**Trade-off:** The cache stores serialized JSON blobs; very large plugin datasets (>50 MB) take non-trivial cache-read time. For those cases, `POST /api/cache/clear?pluginId=<id>` provides a manual escape hatch. HTTP routes still export `dynamic = 'force-dynamic'` — the cache sits inside `plugin.collect()`, not at the HTTP layer.
 
 ---
 

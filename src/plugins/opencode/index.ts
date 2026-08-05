@@ -3,8 +3,13 @@ import * as os from 'os'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import type { DatabaseSync } from 'node:sqlite'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, globFiles, pathExists, convStatus } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, globFiles, pathExists, convStatus,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const XDG_DATA = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local', 'share')
 const MSG_DIR = path.join(XDG_DATA, 'opencode', 'storage', 'message')
@@ -148,13 +153,13 @@ const OPENCODE_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from OpenCode AI coding sessions (~/.local/share/opencode)',
   dataPath: DATA_DIR,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(DB_PATH) || pathExists(MSG_DIR)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(DB_PATH) || await pathExists(MSG_DIR))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
 
     // Prefer SQLite if it exists
     if (fsSync.existsSync(DB_PATH)) {

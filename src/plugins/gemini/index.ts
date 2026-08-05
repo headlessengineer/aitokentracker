@@ -8,7 +8,10 @@ import type {
   ConversationSummary,
   DailyActivity,
   ProjectStats,
+  AvailabilityResult,
 } from '../core/types'
+import { getCostUSD } from '../../lib/pricing'
+import { sinceDate } from '../../lib/since'
 
 const GEMINI_TMP_DIR = path.join(os.homedir(), '.gemini', 'tmp')
 const DEFAULT_MODEL = 'gemini-2.5-pro'
@@ -31,23 +34,23 @@ const GEMINI_PLUGIN: TokenPlugin = {
   description: 'Tracks usage from Google Gemini CLI agentic coding sessions (~/.gemini/tmp)',
   dataPath: GEMINI_TMP_DIR,
 
-  async isAvailable(): Promise<boolean> {
+  async isAvailable(): Promise<AvailabilityResult> {
     try {
       await fs.access(GEMINI_TMP_DIR)
-      return true
+      return { available: true }
     } catch {
-      return false
+      return { available: false, reason: 'path_missing' }
     }
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - days)
+    const cutoff = sinceDate(days)
 
     const dirs = await fs.readdir(GEMINI_TMP_DIR).catch(() => [] as string[])
 
     const dailyMap = new Map<string, DailyActivity>()
+    const costMap = new Map<string, number>()
     const projectMap = new Map<string, ProjectStats>()
     const conversations: ConversationSummary[] = []
     let totalInput = 0
@@ -87,6 +90,9 @@ const GEMINI_PLUGIN: TokenPlugin = {
         totalOutput += estimatedOutput
 
         const dateKey = lastTs.toISOString().slice(0, 10)
+        const sessionCost = getCostUSD(DEFAULT_MODEL, estimatedInput, estimatedOutput, 0, 0)
+        costMap.set(dateKey, (costMap.get(dateKey) ?? 0) + sessionCost)
+
         const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, conversations: 0 }
         day.tokens += estimatedInput + estimatedOutput
         day.input += estimatedInput
@@ -100,6 +106,7 @@ const GEMINI_PLUGIN: TokenPlugin = {
           name: projectId,
           tokens: 0,
           conversations: 0,
+          costUSD: 0,
           lastActivity: lastTs,
         }
         proj.tokens += estimatedInput + estimatedOutput
@@ -128,6 +135,7 @@ const GEMINI_PLUGIN: TokenPlugin = {
     }
 
     const totalTokens = totalInput + totalOutput
+    const totalCostUSD = getCostUSD(DEFAULT_MODEL, totalInput, totalOutput, 0, 0)
     const lastActivity =
       conversations.length > 0
         ? new Date(Math.max(...conversations.map((c) => c.lastActivity.getTime())))
@@ -143,7 +151,7 @@ const GEMINI_PLUGIN: TokenPlugin = {
           cacheWrite: 0,
           total: totalTokens,
         },
-        totalCostUSD: 0,
+        totalCostUSD,
         totalConversations: conversations.length,
         activeConversations: conversations.filter((c) => c.status === 'active').length,
         topProjects: [...projectMap.values()]
@@ -159,7 +167,9 @@ const GEMINI_PLUGIN: TokenPlugin = {
               }]
             : [],
         dailyActivity: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
-        dailyCost: [],
+        dailyCost: [...costMap.entries()]
+          .map(([date, costUSD]) => ({ date, costUSD }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
         lastActivity,
         conversations: conversations
           .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())
@@ -169,6 +179,10 @@ const GEMINI_PLUGIN: TokenPlugin = {
         skills: [],
         mcpServers: [],
         hooks: [],
+        hourlyActivity: [],
+        cacheRoiUSD: 0,
+        dailyCostWithoutCache: [],
+        modelShareByDay: [],
       },
       collectedAt: new Date().toISOString(),
     }

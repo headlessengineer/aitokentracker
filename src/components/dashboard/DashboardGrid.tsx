@@ -55,7 +55,7 @@ function mergeWithSaved(saved: ResponsiveLayouts, widgets: WidgetDef[]): Respons
 }
 
 export function DashboardGrid({ widgets, pluginId }: Props) {
-  const storageKey = `aitokentracker-layout-${pluginId}`
+  const storageKey = `aitokentracker-layout-${pluginId}-v2`
   const [editMode, setEditMode] = useState(false)
   const [layouts, setLayouts] = useState<ResponsiveLayouts>(() => toLayouts(widgets))
 

@@ -18,13 +18,14 @@ Multi-tool AI token tracker built in Next.js 16 App Router (src/app). Plugin arc
 - `src/plugins/<id>/index.ts` — one file per tool implementing `TokenPlugin`
 - `src/plugins/index.ts` — registers all plugins; import this to get the populated registry
 
-## Active Plugins
+## Active Plugins (as of 2026-08-05)
 
-- **34 plugins registered** in `src/plugins/index.ts` (as of 2026-08-03).
+- **34 plugins registered** in `src/plugins/index.ts`. All 34 are real integrations — there are **no hard placeholders**.
 - **claude** — rich reference impl (own `collector.ts`; extracts tools/sub-agents/skills/MCP/hooks/cost from `~/.claude/projects/**/*.jsonl`).
-- **~32 real integrations** — each has a real `dataPath` + `isAvailable` check. Two implementation flavors: JSONL/session-dir readers using shared `core/collect.ts` helpers (`buildPluginData`, `parseClaudeStyleJsonl`, `globFiles`), and SQLite-backed readers via `node:sqlite` (antigravity, devin, goose, hermes, kilo, micode, opencode, zed).
-- **cursor, windsurf** — the only hard placeholders (`isAvailable()` returns false).
-- **devindesktop** — dir exists but is NOT registered in `index.ts` (orphaned).
+- **~32 standard integrations** — each has a real `dataPath` + `isAvailable` check. Flavors: JSONL/session-dir readers using shared `core/collect.ts` helpers, and SQLite-backed readers via `node:sqlite` (antigravity, devin, goose, hermes, kilo, micode, opencode, zed).
+- **cursor** — real implementation: reads Cursor usage CSV via API auth from `state.vscdb`; manages its own 1-hour CSV cache.
+- **windsurf** — real implementation: scans Windsurf globalStorage for Cline-style `ui_messages.json` task files.
+- **devin** — handles both CLI SQLite and Desktop NDJSON. `devindesktop/` re-exports it and is registered.
 
 See `docs/project-understanding.md` for the full code-verified orientation map.
 
@@ -33,18 +34,29 @@ See `docs/project-understanding.md` for the full code-verified orientation map.
 - `GET /api/plugins` — list all plugins with availability
 - `GET /api/summary?days=N` — aggregated tokens across all available plugins
 - `GET /api/[pluginId]/data?days=N&limit=N` — per-plugin detailed data
+- `POST /api/cache/clear?pluginId=<id>` — force-clear the SQLite data cache
+- `GET /api/export?days=N&format=csv|json&plugins=all|<id>` — export usage data
+- `GET /api/stream` — SSE endpoint for live file-change push (chokidar watcher)
 - `/` — overview dashboard (server component)
 - `/[pluginId]` — per-plugin detail page (server component)
 
+## Key Features Added (roadmap items completed)
+
+- **Unified pricing registry** (`src/lib/pricing.ts`) — cost for all plugins via `getCostUSD()`
+- **SQLite cache** (`src/lib/cache.ts`) at `~/.config/aitokentracker/cache.db` — mtime-based invalidation
+- **Live updates** (`src/lib/watcher.ts` + `LiveUpdater` client component) — chokidar SSE push
+- **Rate-limit awareness** (`src/lib/limits.ts`) — Claude message-count quota
+- **Spending forecast**, **hourly heatmap**, **cache ROI**, **model timeline**, **cross-tool timeline**, **conversation search**, **data export**
+
 ## Design
 
-Follows headlessengineer design system: teal accent `--accent-brand: #008383` (`--primary` resolves to it), Inter font, monochrome neutral ramp, CSS custom properties in `globals.css`. Dark mode via `body.dark-mode` class, toggled by `ThemeToggle` client component. (Canonical accent is `#008383` — the design-system/brand skills and docs were updated repo-wide from the old teal to match.)
+Follows headlessengineer design system: teal accent `--accent-brand: #008383` (`--primary` resolves to it), Inter font, monochrome neutral ramp, CSS custom properties in `globals.css`. Dark mode via `body.dark-mode` class, toggled by `ThemeToggle` client component.
 
 ## Tech
 
 - Next.js 16.2.10, React 19, TypeScript strict
 - echarts 6.1.0 for charts (custom `EChart` client component wrapper, no echarts-for-react)
-- No DB, no auth — reads local filesystem in server components
+- SQLite cache at `~/.config/aitokentracker/cache.db` (via `node:sqlite`)
 - CSS Modules only, no Tailwind
 
 ## Reference: source project

@@ -50,6 +50,7 @@ export class NotificationManager {
         icon: '/favicon.ico',
       })
       markFired(rule.id)
+      rule.onFired?.()
     }
   }
 

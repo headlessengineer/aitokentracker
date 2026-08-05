@@ -9,6 +9,7 @@ import type {
   ConversationSummary,
   DailyActivity,
   DailyCost,
+  HourlyActivity,
   ProjectStats,
   ModelStats,
   ToolCallStats,
@@ -17,9 +18,12 @@ import type {
   MCPServerStats,
   HookStats,
   ToolCategory,
+  AvailabilityResult,
 } from '../core/types'
 import { collectConversations, collectHookDefinitions, type ContentItem } from './collector'
-import { costForUsage } from './pricing'
+import { costForUsage, cacheSavingForUsage } from './pricing'
+import { availResult } from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 function emptyUsage(): TokenUsage {
   return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
@@ -49,27 +53,32 @@ const CLAUDE_PLUGIN: TokenPlugin = {
   icon: 'C',
   description: 'Tracks token usage from Claude Code conversations stored in ~/.claude/projects',
   dataPath: path.join(os.homedir(), '.claude', 'projects'),
+  capabilities: { cost: true, models: true, projects: true, sessions: true, rateLimit: false },
 
-  async isAvailable(): Promise<boolean> {
-    return fs.existsSync(this.dataPath)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(fs.existsSync(this.dataPath))
   },
 
   async collect(options: CollectOptions = {}): Promise<PluginData> {
     const { days = 30 } = options
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    const since = sinceDate(days)
 
     const rawConversations = collectConversations()
 
     const aggregatedTokens = emptyUsage()
     let totalCostUSD = 0
+    let totalCacheRoiUSD = 0
     const projectMap = new Map<string, ProjectStats>()
     const modelMap = new Map<string, ModelStats>()
     const activityMap = new Map<string, DailyActivity>()
     const costMap = new Map<string, number>()
+    const savingMap = new Map<string, number>()
     const toolCountMap = new Map<string, number>()
     const subAgentMap = new Map<string, { invocations: number; conversations: Set<string> }>()
     const skillMap = new Map<string, { invocations: number; conversations: Set<string> }>()
     const mcpMap = new Map<string, { callCount: number; tools: Set<string> }>()
+    const hourlyMap = new Map<string, { hour: number; dayOfWeek: number; tokens: number }>()
+    const modelDayMap = new Map<string, { date: string; model: string; tokens: number }>()
     const conversations: ConversationSummary[] = []
 
     const now = Date.now()
@@ -88,6 +97,7 @@ const CLAUDE_PLUGIN: TokenPlugin = {
 
       const convTokens = emptyUsage()
       let convCostUSD = 0
+      let convSavingUSD = 0
       let primaryModel = ''
       let messageCount = 0
 
@@ -118,6 +128,24 @@ const CLAUDE_PLUGIN: TokenPlugin = {
           // Cost is not recorded in the JSONL — estimate it from usage x
           // per-model pricing (see ./pricing.ts).
           convCostUSD += costForUsage(entry.message.model ?? '', u)
+          convSavingUSD += cacheSavingForUsage(entry.message.model ?? '', u)
+
+          // Hourly activity — use entry timestamp for accurate time-of-day
+          if (entry.timestamp) {
+            const entryDate = new Date(entry.timestamp)
+            if (entryDate >= since) {
+              const hour = entryDate.getHours()
+              const dayOfWeek = entryDate.getDay()
+              const key = `${hour}-${dayOfWeek}`
+              const entryTotal = input + output + cacheWrite + cacheRead
+              const existing = hourlyMap.get(key)
+              if (existing) {
+                existing.tokens += entryTotal
+              } else {
+                hourlyMap.set(key, { hour, dayOfWeek, tokens: entryTotal })
+              }
+            }
+          }
         }
 
         if (entry.message.model && !primaryModel) {
@@ -185,10 +213,12 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       aggregatedTokens.cacheWrite += convTokens.cacheWrite
       aggregatedTokens.total += convTokens.total
       totalCostUSD += convCostUSD
+      totalCacheRoiUSD += convSavingUSD
 
       if (conv.lastModified >= since) {
         const ck = conv.lastModified.toISOString().split('T')[0]
         costMap.set(ck, (costMap.get(ck) ?? 0) + convCostUSD)
+        savingMap.set(ck, (savingMap.get(ck) ?? 0) + convSavingUSD)
       }
 
       // Project
@@ -196,12 +226,14 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       if (proj) {
         proj.tokens += convTokens.total
         proj.conversations++
+        proj.costUSD += convCostUSD
         if (conv.lastModified > proj.lastActivity) proj.lastActivity = conv.lastModified
       } else {
         projectMap.set(conv.project, {
           name: conv.project,
           tokens: convTokens.total,
           conversations: 1,
+          costUSD: convCostUSD,
           lastActivity: conv.lastModified,
         })
       }
@@ -227,9 +259,20 @@ const CLAUDE_PLUGIN: TokenPlugin = {
         }
       }
 
-      // Daily activity — only within selected window
+      // Daily activity + model-by-day — only within selected window
       if (conv.lastModified >= since) {
         const dateKey = conv.lastModified.toISOString().split('T')[0]
+
+        if (primaryModel && convTokens.total > 0) {
+          const mdKey = `${primaryModel}:${dateKey}`
+          const existing = modelDayMap.get(mdKey)
+          if (existing) {
+            existing.tokens += convTokens.total
+          } else {
+            modelDayMap.set(mdKey, { date: dateKey, model: primaryModel, tokens: convTokens.total })
+          }
+        }
+
         const day = activityMap.get(dateKey)
         if (day) {
           day.tokens += convTokens.total
@@ -311,6 +354,10 @@ const CLAUDE_PLUGIN: TokenPlugin = {
       .map(([date, costUSD]) => ({ date, costUSD }))
       .sort((a, b) => a.date.localeCompare(b.date))
 
+    const dailyCostWithoutCache: DailyCost[] = Array.from(costMap.entries())
+      .map(([date, costUSD]) => ({ date, costUSD: costUSD + (savingMap.get(date) ?? 0) }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
     return {
       pluginId: 'claude',
       summary: {
@@ -333,6 +380,10 @@ const CLAUDE_PLUGIN: TokenPlugin = {
         skills,
         mcpServers,
         hooks,
+        hourlyActivity: Array.from(hourlyMap.values()) as HourlyActivity[],
+        cacheRoiUSD: totalCacheRoiUSD,
+        dailyCostWithoutCache,
+        modelShareByDay: Array.from(modelDayMap.values()),
       },
       collectedAt: new Date().toISOString(),
     }

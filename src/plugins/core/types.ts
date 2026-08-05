@@ -31,6 +31,7 @@ export interface ProjectStats {
   name: string
   tokens: number
   conversations: number
+  costUSD: number
   lastActivity: Date
 }
 
@@ -44,6 +45,12 @@ export interface ModelStats {
 export interface DailyCost {
   date: string
   costUSD: number
+}
+
+export interface HourlyActivity {
+  hour: number       // 0–23 local time
+  dayOfWeek: number  // 0=Sun … 6=Sat
+  tokens: number
 }
 
 // ─── Tool / Agent / Skill / MCP breakdown ───
@@ -98,6 +105,10 @@ export interface PluginSummary {
   skills: SkillStats[]
   mcpServers: MCPServerStats[]
   hooks: HookStats[]
+  hourlyActivity: HourlyActivity[]
+  cacheRoiUSD: number
+  dailyCostWithoutCache: DailyCost[]
+  modelShareByDay: { date: string; model: string; tokens: number }[]
 }
 
 export interface CollectOptions {
@@ -117,13 +128,40 @@ export interface DashboardSection {
   width: 'full' | 'half' | 'third'
 }
 
+export interface PluginCapabilities {
+  /** Plugin can report cost in USD (has a pricing match for its models). */
+  cost: boolean
+  /** Plugin reports a model breakdown (`topModels` is populated). */
+  models: boolean
+  /** Plugin reports per-project stats (`topProjects` is populated). */
+  projects: boolean
+  /** Plugin reports individual conversations (`conversations` is populated). */
+  sessions: boolean
+  /** Plugin can report provider quota / rate-limit data. */
+  rateLimit: boolean
+}
+
+export type AvailabilityReason = 'path_missing' | 'parse_error' | 'placeholder' | 'not_installed'
+
+export interface AvailabilityResult {
+  available: boolean
+  reason?: AvailabilityReason
+  detail?: string
+}
+
 export interface TokenPlugin {
   readonly id: string
   readonly name: string
   readonly icon: string
   readonly description: string
   readonly dataPath: string
-  isAvailable: () => Promise<boolean>
+  /**
+   * Declares what this plugin can report.
+   * Optional on the raw plugin object — the registry always fills in sensible
+   * defaults, so consumers can treat it as always present after registration.
+   */
+  readonly capabilities?: PluginCapabilities
+  isAvailable: () => Promise<AvailabilityResult>
   collect: (options?: CollectOptions) => Promise<PluginData>
   getDashboardSections?: () => DashboardSection[]
 }
@@ -135,4 +173,5 @@ export interface PluginStatus {
   description: string
   dataPath: string
   available: boolean
+  unavailabilityReason?: AvailabilityReason
 }

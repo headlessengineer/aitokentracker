@@ -1,0 +1,5 @@
+.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-tint);
+}

@@ -2,3 +2,10 @@
   width: 100%;
   overflow-x: auto;
 }
+
+.empty {
+  color: var(--fg-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-lg) 0;
+  text-align: center;
+}

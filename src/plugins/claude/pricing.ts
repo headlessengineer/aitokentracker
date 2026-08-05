@@ -44,6 +44,17 @@ function rateForModel(model: string): Rate | null {
   return null
 }
 
+/**
+ * How much the cache saved on this usage record vs. paying full input rate.
+ * Returns 0 for unknown models or zero cache reads.
+ */
+export function cacheSavingForUsage(model: string, usage: UsageForCost): number {
+  const rate = rateForModel(model)
+  if (!rate) return 0
+  const cacheRead = usage.cache_read_input_tokens ?? 0
+  return (cacheRead * (rate.input - rate.cacheRead)) / 1_000_000
+}
+
 /** Estimated USD cost for a single usage record. Returns 0 for unknown models. */
 export function costForUsage(model: string, usage: UsageForCost): number {
   const rate = rateForModel(model)

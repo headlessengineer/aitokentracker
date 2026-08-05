@@ -1,8 +1,13 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, globFiles, pathExists, convStatus } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, globFiles, pathExists, convStatus,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const DATA_DIR = path.join(os.homedir(), '.codebuddy', 'projects')
 
@@ -78,13 +83,13 @@ const CODEBUDDY_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from CodeBuddy AI sessions (~/.codebuddy/projects)',
   dataPath: DATA_DIR,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(DATA_DIR)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(DATA_DIR))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
 
     const files = await globFiles(DATA_DIR, '.jsonl')
     if (files.length === 0) return emptyPluginData('codebuddy')

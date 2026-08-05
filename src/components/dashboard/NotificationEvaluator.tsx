@@ -3,19 +3,34 @@
 import { useEffect, useMemo } from 'react'
 import { useNotifications, NotificationManager, DAILY_TOKEN_LIMIT } from '@/lib/notifications'
 import type { NotificationContext } from '@/lib/notifications'
+import type { ProviderLimit } from '@/lib/limits'
 
 interface Props {
   todayTokens: number
+  providerLimits?: ProviderLimit[]
+  yesterdayTokens?: number
+  yesterdayCostUSD?: number
+  topToolNameYesterday?: string
 }
 
-export function NotificationEvaluator({ todayTokens }: Props) {
+export function NotificationEvaluator({
+  todayTokens,
+  providerLimits,
+  yesterdayTokens,
+  yesterdayCostUSD,
+  topToolNameYesterday,
+}: Props) {
   const context = useMemo<NotificationContext>(
     () => ({
       dailyTokens: todayTokens,
       dailyLimit: DAILY_TOKEN_LIMIT,
       pctOfLimit: (todayTokens / DAILY_TOKEN_LIMIT) * 100,
+      providerLimits,
+      yesterdayTokens,
+      yesterdayCostUSD,
+      topToolNameYesterday,
     }),
-    [todayTokens]
+    [todayTokens, providerLimits, yesterdayTokens, yesterdayCostUSD, topToolNameYesterday]
   )
 
   useNotifications(context)

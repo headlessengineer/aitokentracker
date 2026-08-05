@@ -9,9 +9,13 @@ import type {
   CollectOptions,
   ConversationSummary,
   DailyActivity,
+  DailyCost,
   ProjectStats,
   ToolCallStats,
+  AvailabilityResult,
 } from '../core/types'
+import { getCostUSD } from '../../lib/pricing'
+import { sinceDate } from '../../lib/since'
 
 const GEMINI_DIR = path.join(os.homedir(), '.gemini')
 const ANTIGRAVITY_CLI_DIR = path.join(GEMINI_DIR, 'antigravity-cli')
@@ -269,19 +273,18 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
   description: 'Tracks sessions from Antigravity CLI (agy) at ~/.gemini/antigravity-cli',
   dataPath: ANTIGRAVITY_CLI_DIR,
 
-  async isAvailable(): Promise<boolean> {
+  async isAvailable(): Promise<AvailabilityResult> {
     try {
       await fs.access(CONVERSATIONS_DIR)
-      return true
+      return { available: true }
     } catch {
-      return false
+      return { available: false, reason: 'path_missing' }
     }
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - days)
+    const cutoff = sinceDate(days)
 
     const historyMap = await readHistoryMap()
 
@@ -299,9 +302,11 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
     const conversations: ConversationSummary[] = []
     const globalToolTotals = new Map<string, number>()
     const projectMap = new Map<string, ProjectStats>()
+    const costMap = new Map<string, number>()
 
     let totalInput = 0
     let totalOutput = 0
+    let totalCostUSD = 0
 
     for (const uuid of uuids) {
       const conv = await readConversationDB(uuid)
@@ -311,7 +316,11 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
       totalInput += conv.inputTokens
       totalOutput += conv.outputTokens
 
+      const convCost = getCostUSD(conv.model, conv.inputTokens, conv.outputTokens, 0, 0)
+      totalCostUSD += convCost
+
       const dateKey = conv.lastActivity.toISOString().slice(0, 10)
+      costMap.set(dateKey, (costMap.get(dateKey) ?? 0) + convCost)
       const dayTotal = conv.inputTokens + conv.outputTokens
       const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, conversations: 0 }
       day.conversations += 1
@@ -350,6 +359,7 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
         name: project,
         tokens: 0,
         conversations: 0,
+        costUSD: 0,
         lastActivity: conv.lastActivity,
       }
       existing.conversations += 1
@@ -362,6 +372,10 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
       .map(([name, callCount]) => ({ name, callCount, category: 'core' as const }))
       .sort((a, b) => b.callCount - a.callCount)
       .slice(0, 20)
+
+    const dailyCost: DailyCost[] = [...costMap.entries()]
+      .map(([date, costUSD]) => ({ date, costUSD }))
+      .sort((a, b) => a.date.localeCompare(b.date))
 
     const lastActivity =
       conversations.length > 0
@@ -398,7 +412,7 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
           cacheWrite: 0,
           total: totalInput + totalOutput,
         },
-        totalCostUSD: 0,
+        totalCostUSD,
         totalConversations: conversations.length,
         activeConversations: conversations.filter((c) => c.status === 'active').length,
         topProjects: [...projectMap.values()]
@@ -406,7 +420,7 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
           .slice(0, 10),
         topModels,
         dailyActivity: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
-        dailyCost: [],
+        dailyCost,
         lastActivity,
         conversations: conversations
           .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())
@@ -416,6 +430,10 @@ const ANTIGRAVITY_PLUGIN: TokenPlugin = {
         skills: [],
         mcpServers: [],
         hooks: [],
+        hourlyActivity: [],
+        cacheRoiUSD: 0,
+        dailyCostWithoutCache: [],
+        modelShareByDay: [],
       },
       collectedAt: new Date().toISOString(),
     }

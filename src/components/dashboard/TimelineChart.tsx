@@ -139,6 +139,10 @@ export function TimelineChart({ activity, days = 30 }: TimelineChartProps) {
     }
   }, [activity, days, theme])
 
+  if (activity.length === 0) {
+    return <p className={styles.empty}>No data for this period — try a wider date range.</p>
+  }
+
   return (
     <div className={styles.root}>
       <EChart option={option} style={{ width: '100%', height: 220 }} />

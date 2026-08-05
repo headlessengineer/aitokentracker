@@ -54,7 +54,14 @@ function resolveSplit(name: string): readonly [string, string] | null {
 
 const MEASURE_SIZE = 100
 
-export function PluginBanner({ name }: { name: string }) {
+const REASON_HINTS: Record<string, string> = {
+  path_missing: 'Install and use this tool — data will appear here automatically.',
+  placeholder: 'Parser not yet implemented — check back in a future release.',
+  parse_error: 'An error occurred while reading this plugin\'s data.',
+  not_installed: 'This tool is not available on your machine.',
+}
+
+export function PluginBanner({ name, unavailabilityReason }: { name: string; unavailabilityReason?: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
   const [fontSize, setFontSize] = useState<number | null>(null)
@@ -107,6 +114,11 @@ export function PluginBanner({ name }: { name: string }) {
           <span className={styles.full}>{displayText}</span>
         )}
       </span>
+      {unavailabilityReason && (
+        <p className={styles.hint}>
+          {REASON_HINTS[unavailabilityReason] ?? 'This plugin is not currently available.'}
+        </p>
+      )}
     </div>
   )
 }

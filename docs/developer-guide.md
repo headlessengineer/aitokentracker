@@ -102,7 +102,7 @@ aitokentracker/
 └── package.json
 ```
 
-> `src/plugins/devindesktop/` exists on disk but is **not** registered in `index.ts` (orphaned — a known gap, not a working integration).
+> `src/plugins/devindesktop/` re-exports the `devin` plugin (which handles both CLI SQLite and Desktop NDJSON) and is registered. It is not a separate plugin — it is an alias entry point.
 
 ---
 
@@ -322,12 +322,12 @@ Adding a chart therefore means adding a `WidgetDef` entry to the page's widget a
 
 The time range is stored as a URL query parameter: `?days=N`. Selecting a new range from the ControlBar calls `router.push(path + '?days=' + N)`, which triggers a full server re-render.
 
-Valid values are `VALID_DAYS = [1, 7, 15, 30, 60, 90]` (defined in both `app/page.tsx` and `app/[pluginId]/page.tsx`); the default is `30`. **There is no 14-day option.** Any `?days=` value outside this set falls back to the default.
+Valid values are `VALID_DAYS = [0, 1, 7, 15, 30, 60, 90, 9999]` (defined in both `app/page.tsx` and `app/[pluginId]/page.tsx`); the default is `30`. `0` means "Today only"; `9999` means "All time". Any `?days=` value outside this set falls back to the default.
 
 On the server, time range is read and validated via:
 
 ```typescript
-const VALID_DAYS = [1, 7, 15, 30, 60, 90] as const
+const VALID_DAYS = [0, 1, 7, 15, 30, 60, 90, 9999] as const
 const days = /* parsed from searchParams, clamped to VALID_DAYS, else 30 */ 30
 const data = await plugin.collect({ days })
 ```
@@ -367,13 +367,15 @@ Props: `plugins: PluginStatus[]`, `activePluginId?: string`, `selectedDays: numb
 - `activePluginId?: string` — current plugin ID (undefined on overview); used to build the navigation target
 - `selectedDays: number` — current days filter (from server-parsed searchParams)
 - `dataPath?: string` — optional label shown on the right
-- `action?: React.ReactNode` — optional slot (the pages pass `<RefreshButton />`)
+- `action?: React.ReactNode` — optional slot (the detail page passes `<ExportButton days={days} pluginId={pluginId} />`)
 
 It renders **one** time-range `<select>` (the `VALID_DAYS` options), plus an optional action slot and `dataPath` label. Changing the range calls `router.push(\`${path}?days=${value}\`)`. `useSearchParams` is not used — `selectedDays` is passed as a prop from the server-rendered parent.
 
-### AutoRefresh
+### LiveUpdater
 
-`RefreshButton` triggers a manual `router.refresh()`. In addition, the detail page (`app/[pluginId]/page.tsx`) renders `<AutoRefresh intervalMs={5000} />`, which re-fetches server data every 5 seconds so live token counts stay current while the page is open.
+`RefreshButton` triggers a manual `router.refresh()`. The detail page (`app/[pluginId]/page.tsx`) also renders `<LiveUpdater />` — a client component that opens a connection to `GET /api/stream` (SSE backed by a chokidar watcher) and calls `router.refresh()` whenever a file-change event arrives. This replaces the old `<AutoRefresh intervalMs={5000} />` polling approach.
+
+`GET /api/stream` emits `data: data-changed\n\n` whenever chokidar detects modifications in any plugin data path. `LiveUpdater` reconnects automatically on disconnect.
 
 ---
 
@@ -608,15 +610,18 @@ Dark-mode overrides are defined under `body.dark-mode { ... }` in `globals.css`.
 
 ## API Routes
 
-All routes are **GET only** and export `export const dynamic = 'force-dynamic'` to prevent static caching.
+All routes export `export const dynamic = 'force-dynamic'` to prevent static caching. Most are GET; `cache/clear` is POST.
 
-| Route | Returns |
-|---|---|
-| `GET /api/plugins` | `PluginStatus[]` |
-| `GET /api/summary?days=N` | Aggregated tokens + a `perPlugin` map across all available plugins |
-| `GET /api/[pluginId]/data?days=N&limit=M` | Full `PluginData` for one plugin — `404` unknown plugin, `503` unavailable, `500` on collection error |
+| Route | Method | Returns |
+|---|---|---|
+| `/api/plugins` | GET | `PluginStatus[]` |
+| `/api/summary?days=N` | GET | Aggregated tokens + a `perPlugin` map across all available plugins |
+| `/api/[pluginId]/data?days=N&limit=M` | GET | Full `PluginData` — `404` unknown, `503` unavailable, `500` error |
+| `/api/cache/clear?pluginId=<id>` | POST | Force-invalidate the SQLite data cache for one (or all) plugins |
+| `/api/export?days=N&format=csv\|json&plugins=all\|<id>` | GET | Download usage data as CSV or JSON attachment |
+| `/api/stream` | GET (SSE) | Server-Sent Events; emits `data-changed` when chokidar detects file modifications |
 
-> The pages do **not** call these routes. Both `app/page.tsx` and `app/[pluginId]/page.tsx` call the plugin registry directly server-side. The routes exist for external / programmatic use and for client-side refresh.
+> The pages do **not** call these routes. Both `app/page.tsx` and `app/[pluginId]/page.tsx` call the plugin registry directly server-side. The routes exist for external / programmatic use and for client-side components (`LiveUpdater`, `ExportButton`).
 
 ---
 

@@ -75,6 +75,10 @@ export function ActivityHeatmap({ activity, year }: ActivityHeatmapProps) {
     }
   }, [activity, targetYear, theme])
 
+  if (activity.length === 0) {
+    return <p className={styles.empty}>No activity recorded for this period.</p>
+  }
+
   return (
     <div className={styles.root}>
       <EChart option={option} style={{ width: '100%', height: 160 }} />

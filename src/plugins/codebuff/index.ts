@@ -1,8 +1,13 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, pathExists, convStatus,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const CODEBUFF_BASE = process.env.CODEBUFF_DATA_DIR ?? path.join(os.homedir(), '.config', 'manicode')
 
@@ -108,13 +113,13 @@ const CODEBUFF_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from Codebuff AI sessions (~/.config/manicode/projects)',
   dataPath: CODEBUFF_BASE,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(CODEBUFF_BASE)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(CODEBUFF_BASE))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
 
     // Structure: <base>/<channel>/projects/<project>/chats/<chat-id>/chat-messages.json
     const conversations: ConversationSummary[] = []

@@ -15,7 +15,7 @@ AI Token Tracker is a self-hosted dashboard that reads local data files from you
 - **Claude Code deep analytics** — sub-agent invocations by type, skill usage by name, MCP server calls, hook fire counts
 - **Dark mode** — system-preference aware with manual toggle, persisted to localStorage
 - **Plugin architecture** — add support for any new tool by implementing a single TypeScript interface
-- **Zero infrastructure** — no database, no auth, no external services; reads local files at request time
+- **SQLite-backed cache** — mtime-based cache at `~/.config/aitokentracker/cache.db` keeps cold-start fast; no external services required
 
 ---
 
@@ -38,7 +38,7 @@ The overview dashboard loads immediately. If Claude Code is installed and has be
 
 ## Supported Tools
 
-**34 tool plugins are registered** (`src/plugins/index.ts`). Of these, **32 are real integrations** that read a live data path and detect their own availability, and **2 are placeholders** (`cursor`, `windsurf` — `isAvailable()` returns `false`, empty data path). Every registered tool appears in the off-canvas navigation drawer; tools with no data on the machine are shown dimmed as "not configured".
+**34 tool plugins are registered** (`src/plugins/index.ts`), all real integrations that read a live data path and detect their own availability. Every registered tool appears in the off-canvas navigation drawer; tools with no data on the machine are shown dimmed as "not configured".
 
 Claude Code is the deep-analytics reference integration:
 
@@ -49,11 +49,10 @@ Claude Code is the deep-analytics reference integration:
 | Qwen, CommandCode, … | Real — Claude-style JSONL logs | per-tool log dir |
 | Amp, Mux, … | Real — per-session JSON directory | per-tool session dir |
 | Goose, Zed, Hermes, Antigravity, Devin, Kilo, MiCode, OpenCode | Real — SQLite database (`node:sqlite`) | per-tool `.db` |
-| Cursor, Windsurf | Placeholder — not yet implemented | — |
+| Cursor | Real — reads Cursor usage CSV via API auth from `state.vscdb`; 1-hour CSV cache | `~/.cursor` |
+| Windsurf | Real — scans Windsurf globalStorage for Cline-style `ui_messages.json` task files | VS Code globalStorage |
 
 The remaining real integrations (Gemini, Copilot, Kiro, Cline, RooCode, KiloCode, Openclaw, Pi, Codebuddy, GJC, ZCode, OpenCodeReview, Kimi, Junie, Grok, JCode, Codebuff, Droid, Zed, and more) follow the same lightweight pattern. See `docs/developer-guide.md` for the full plugin authoring guide.
-
-> Known gap: `src/plugins/devindesktop/` exists on disk but is **not** imported or registered in `src/plugins/index.ts`, so it does not appear in the app.
 
 ---
 
@@ -67,7 +66,7 @@ The remaining real integrations (Gemini, Copilot, Kiro, Cline, RooCode, KiloCode
 | Dashboard layout | react-grid-layout 2.2.3 (draggable / resizable widget grid) |
 | Styling | CSS Modules + CSS custom properties (no Tailwind) |
 | Fonts | Inter (UI), JetBrains Mono (code) |
-| Data | Local filesystem — no DB, no ORM, no auth |
+| Data | Local filesystem + SQLite cache at `~/.config/aitokentracker/cache.db` |
 | Auth | None |
 
 ---

@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation'
 import styles from './ControlBar.module.css'
 
 const RANGES: Array<{ label: string; days: number }> = [
-  { label: 'Last 1 day',   days: 1  },
-  { label: 'Last 7 days',  days: 7  },
-  { label: 'Last 15 days', days: 15 },
-  { label: 'Last 30 days', days: 30 },
-  { label: 'Last 60 days', days: 60 },
-  { label: 'Last 90 days', days: 90 },
+  { label: 'Today',         days: 0    },
+  { label: 'Last 1 day',   days: 1    },
+  { label: 'Last 7 days',  days: 7    },
+  { label: 'Last 15 days', days: 15   },
+  { label: 'Last 30 days', days: 30   },
+  { label: 'Last 60 days', days: 60   },
+  { label: 'Last 90 days', days: 90   },
+  { label: 'All time',     days: 9999 },
 ]
 
 interface ControlBarProps {

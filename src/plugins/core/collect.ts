@@ -7,10 +7,17 @@ import type {
   TokenUsage,
   ConversationSummary,
   DailyActivity,
+  DailyCost,
   ProjectStats,
   ModelStats,
   CollectOptions,
+  AvailabilityResult,
 } from './types'
+import { getCostUSD, refreshPricing } from '../../lib/pricing'
+
+export function availResult(available: boolean, detail?: string): AvailabilityResult {
+  return { available, reason: available ? undefined : 'path_missing', detail }
+}
 
 export function emptyUsage(): TokenUsage {
   return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
@@ -35,6 +42,10 @@ export function emptyPluginData(pluginId: string): PluginData {
       skills: [],
       mcpServers: [],
       hooks: [],
+      hourlyActivity: [],
+      cacheRoiUSD: 0,
+      dailyCostWithoutCache: [],
+      modelShareByDay: [],
     },
     collectedAt: new Date().toISOString(),
   }
@@ -53,10 +64,16 @@ export function buildPluginData(
 ): PluginData {
   const { limit = 100 } = options
 
+  // Trigger a background refresh of the user's pricing file (no-op if < 24h old)
+  refreshPricing()
+
   const totalTokens = emptyUsage()
+  let totalCostUSD = 0
   const projectMap = new Map<string, ProjectStats>()
   const modelMap = new Map<string, ModelStats>()
   const dailyMap = new Map<string, DailyActivity>()
+  const costMap = new Map<string, number>()
+  const modelDayMap = new Map<string, { date: string; model: string; tokens: number }>()
 
   for (const c of conversations) {
     totalTokens.input += c.tokens.input
@@ -65,7 +82,12 @@ export function buildPluginData(
     totalTokens.cacheWrite += c.tokens.cacheWrite
     totalTokens.total += c.tokens.total
 
+    const convCost = getCostUSD(c.model, c.tokens.input, c.tokens.output, c.tokens.cacheRead, c.tokens.cacheWrite)
+    totalCostUSD += convCost
+
     const dateKey = c.lastActivity.toISOString().slice(0, 10)
+    costMap.set(dateKey, (costMap.get(dateKey) ?? 0) + convCost)
+
     const day = dailyMap.get(dateKey) ?? { date: dateKey, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, conversations: 0 }
     day.tokens += c.tokens.total
     day.input += c.tokens.input
@@ -79,12 +101,14 @@ export function buildPluginData(
     if (proj) {
       proj.tokens += c.tokens.total
       proj.conversations += 1
+      proj.costUSD += convCost
       if (c.lastActivity > proj.lastActivity) proj.lastActivity = c.lastActivity
     } else {
       projectMap.set(c.project, {
         name: c.project,
         tokens: c.tokens.total,
         conversations: 1,
+        costUSD: convCost,
         lastActivity: c.lastActivity,
       })
     }
@@ -107,8 +131,21 @@ export function buildPluginData(
           conversations: 1,
         })
       }
+
+      const dateKey = c.lastActivity.toISOString().slice(0, 10)
+      const mdKey = `${c.model}:${dateKey}`
+      const existing = modelDayMap.get(mdKey)
+      if (existing) {
+        existing.tokens += c.tokens.total
+      } else {
+        modelDayMap.set(mdKey, { date: dateKey, model: c.model, tokens: c.tokens.total })
+      }
     }
   }
+
+  const dailyCost: DailyCost[] = [...costMap.entries()]
+    .map(([date, costUSD]) => ({ date, costUSD }))
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   const sorted = [...conversations].sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime())
   const lastActivity = sorted.length > 0 ? sorted[0].lastActivity : null
@@ -117,13 +154,13 @@ export function buildPluginData(
     pluginId,
     summary: {
       totalTokens,
-      totalCostUSD: 0,
+      totalCostUSD,
       totalConversations: conversations.length,
       activeConversations: conversations.filter((c) => c.status === 'active').length,
       topProjects: [...projectMap.values()].sort((a, b) => b.tokens - a.tokens).slice(0, 10),
       topModels: [...modelMap.values()].sort((a, b) => b.tokens - a.tokens),
       dailyActivity: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
-      dailyCost: [],
+      dailyCost,
       lastActivity,
       conversations: sorted.slice(0, limit),
       topTools: [],
@@ -131,6 +168,10 @@ export function buildPluginData(
       skills: [],
       mcpServers: [],
       hooks: [],
+      hourlyActivity: [],
+      cacheRoiUSD: 0,
+      dailyCostWithoutCache: [],
+      modelShareByDay: [...modelDayMap.values()],
     },
     collectedAt: new Date().toISOString(),
   }

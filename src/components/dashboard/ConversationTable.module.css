@@ -25,6 +25,7 @@
 .row {
   border-bottom: 1px solid var(--border);
   transition: background var(--duration-fast);
+  cursor: pointer;
 }
 
 .row:last-child {
@@ -33,6 +34,38 @@
 
 .row:hover {
   background: var(--elevated);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.rowExpanded {
+  background: var(--elevated);
+}
+
+.detailRow {
+  background: var(--surface-card);
+}
+
+.detailCell {
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.detailGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-lg);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.detailLabel {
+  color: var(--fg-muted);
+  margin-right: var(--space-2xs);
 }
 
 .td {
@@ -67,4 +100,38 @@
   font-size: var(--font-size-md);
   padding: var(--space-xl);
   text-align: center;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.searchInput {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+
+.searchInput:focus {
+  border-color: var(--primary);
+}
+
+.searchInput::placeholder {
+  color: var(--fg-muted);
+}
+
+.searchCount {
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
 }

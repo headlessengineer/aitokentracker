@@ -1,8 +1,13 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, pathExists, convStatus, globFiles } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, pathExists, convStatus, globFiles,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const CODEX_HOME = process.env.CODEX_HOME ?? path.join(os.homedir(), '.codex')
 const SESSIONS_DIR = path.join(CODEX_HOME, 'sessions')
@@ -211,13 +216,13 @@ const CODEX_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from OpenAI Codex CLI sessions (~/.codex/sessions)',
   dataPath: SESSIONS_DIR,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(SESSIONS_DIR)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(SESSIONS_DIR))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
 
     const [active, archived] = await Promise.all([
       collectFromDir(SESSIONS_DIR, cutoff),

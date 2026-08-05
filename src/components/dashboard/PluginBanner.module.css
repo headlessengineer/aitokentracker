@@ -52,3 +52,12 @@
 .full {
   color: var(--primary);
 }
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--n400);
+  text-align: center;
+  margin-top: 0.75rem;
+  letter-spacing: 0;
+  font-family: var(--font-body);
+}

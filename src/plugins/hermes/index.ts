@@ -2,8 +2,13 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fsSync from 'fs'
 import type { DatabaseSync } from 'node:sqlite'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, pathExists, convStatus,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const HERMES_HOME = process.env.HERMES_HOME ?? path.join(os.homedir(), '.hermes')
 const DB_PATH = path.join(HERMES_HOME, 'state.db')
@@ -71,13 +76,13 @@ const HERMES_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from Hermes Agent sessions (~/.hermes/state.db)',
   dataPath: DB_PATH,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(DB_PATH)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(DB_PATH))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
     const conversations = await readHermes(cutoff)
     return buildPluginData('hermes', conversations, options)
   },

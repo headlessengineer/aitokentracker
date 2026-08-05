@@ -2,8 +2,13 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fsSync from 'fs'
 import type { DatabaseSync } from 'node:sqlite'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, pathExists, convStatus } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, pathExists, convStatus,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const XDG_DATA = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local', 'share')
 const LINUX_DB = path.join(XDG_DATA, 'zed', 'threads', 'threads.db')
@@ -142,13 +147,13 @@ const ZED_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from Zed hosted AI coding sessions',
   dataPath: LINUX_DB,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(LINUX_DB) || pathExists(MACOS_DB)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(LINUX_DB) || await pathExists(MACOS_DB))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
     const dbPath = fsSync.existsSync(LINUX_DB) ? LINUX_DB : MACOS_DB
     const conversations = await readZed(dbPath, cutoff)
     if (conversations.length === 0) return emptyPluginData('zed')

@@ -1,8 +1,13 @@
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs/promises'
-import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary } from '../core/types'
-import { emptyPluginData, buildPluginData, pathExists, convStatus, globFiles } from '../core/collect'
+import type { TokenPlugin, PluginData, CollectOptions, ConversationSummary,
+  AvailabilityResult,
+} from '../core/types'
+import { emptyPluginData, buildPluginData, pathExists, convStatus, globFiles,
+  availResult,
+} from '../core/collect'
+import { sinceDate } from '../../lib/since'
 
 const GJC_DIR = process.env.GJC_CODING_AGENT_DIR ?? path.join(os.homedir(), '.gjc', 'agent')
 const SESSIONS_DIR = path.join(GJC_DIR, 'sessions')
@@ -33,13 +38,13 @@ const GJC_PLUGIN: TokenPlugin = {
   description: 'Tracks token usage from gajae-code (gjc) sessions (~/.gjc/agent/sessions)',
   dataPath: SESSIONS_DIR,
 
-  async isAvailable(): Promise<boolean> {
-    return pathExists(SESSIONS_DIR)
+  async isAvailable(): Promise<AvailabilityResult> {
+    return availResult(await pathExists(SESSIONS_DIR))
   },
 
   async collect(options?: CollectOptions): Promise<PluginData> {
     const days = options?.days ?? 30
-    const cutoff = new Date(Date.now() - days * 86_400_000)
+    const cutoff = sinceDate(days)
 
     const files = await globFiles(SESSIONS_DIR, '.jsonl')
     if (files.length === 0) return emptyPluginData('gjc')

@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Token Tracker - headlessengineer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Double:wght@100..900&family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+
+/* ── Tier 1: primitives (exact values from globals.css) ─────────────── */
+:root {
+  --white:        #ffffff;
+  --black:        #000000;
+  --n-50:         #f6f6f6;
+  --n-100:        #ebebeb;
+  --n-200:        #d4d4d4;
+  --n-300:        #b6b6b6;
+  --n-400:        #989898;
+  --n-500:        #7c7c7c;
+  --n-600:        #616161;
+  --n-700:        #474747;
+  --n-800:        #303030;
+  --n-900:        #1f1f1f;
+  --n-950:        #111111;
+  --accent-brand: #008383;
+}
+
+/* ── Tier 2: semantics ──────────────────────────────────────────────── */
+:root {
+  --primary:    var(--accent-brand);
+  --on-primary: var(--black);
+
+  /* light (default) */
+  --bg:           var(--n-50);
+  --surface:      var(--n-50);
+  --surface-card: var(--white);
+  --elevated:     var(--n-100);
+  --border:       var(--n-200);
+  --fg:           var(--n-950);
+  --fg-secondary: var(--n-600);
+  --fg-muted:     var(--n-500);
+
+  /* fonts */
+  --font-sans:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
+  --font-wordmark: 'Bitcount Grid Double', var(--font-sans);
+
+  /* motion */
+  --dur-fast:    150ms;
+  --dur-base:    200ms;
+  --dur-slow:    300ms;
+  --ease-out:    ease-out;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* radii */
+  --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
+
+  /* layout */
+  --pad:        56px;
+  --size-touch: 48px;
+  --size-icon:  20px;
+}
+
+/* ── Dark mode swap ─────────────────────────────────────────────────── */
+body.dark-mode {
+  --bg:           var(--n-950);
+  --surface:      var(--n-900);
+  --surface-card: var(--black);
+  --elevated:     var(--n-800);
+  --border:       var(--n-700);
+  --fg:           var(--white);
+  --fg-secondary: var(--n-300);
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--r-sm); }
+
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out);
+}
+body.scroll-mode { overflow-y: auto; }
+
+/* ── Deck container (16:9) ──────────────────────────────────────────── */
+.slide-deck {
+  position: relative;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+}
+@media (min-width: 769px) {
+  .slide-deck {
+    max-width: calc(100vh * 16 / 9);
+    max-height: calc(100vw * 9 / 16);
+    margin: auto;
+    position: absolute; inset: 0;
+  }
+}
+body.scroll-mode .slide-deck {
+  position: static; width: 100%; height: auto;
+  max-width: none; max-height: none; overflow: visible;
+}
+body.scroll-mode .slide {
+  position: relative; inset: unset;
+  opacity: 1 !important; visibility: visible !important;
+  min-height: 100svh; height: auto; transition: none;
+}
+
+/* ── Slide ──────────────────────────────────────────────────────────── */
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: var(--pad);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--dur-slow) var(--ease-out);
+  background: var(--bg);
+  overflow: hidden;
+}
+.slide.active { opacity: 1; visibility: visible; }
+
+/* ── Anatomy zones ──────────────────────────────────────────────────── */
+.slide-header {
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+  padding-bottom: 20px;
+}
+.slide-header--left { align-items: flex-start; text-align: left; }
+
+.slide-body {
+  flex: 1; width: 100%;
+  display: flex; flex-direction: column;
+  justify-content: center; gap: 16px;
+  overflow: hidden; min-height: 0;
+}
+.slide-body--center { align-items: center; text-align: center; }
+
+.slide-footer {
+  flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 12px;
+}
+.footer-section {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--fg-muted);
+}
+/* Bitcount Grid Double, weight 300 per brand spec */
+.footer-wordmark {
+  font-family: var(--font-wordmark);
+  font-size: 13px; font-weight: 300;
+  font-optical-sizing: auto;
+  font-variation-settings: "slnt" 0, "CRSV" 0.5, "ELSH" 0, "ELXP" 0;
+  text-transform: uppercase; letter-spacing: 0.04em; line-height: 1;
+}
+.footer-wordmark .wm-head { color: var(--fg-muted); }
+.footer-wordmark .wm-eng  { color: var(--primary); }
+
+/* ── Typography ─────────────────────────────────────────────────────── */
+.eyebrow {
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--primary);
+}
+.slide-title {
+  font-size: clamp(30px, 5.8vw, 74px);
+  font-weight: 700; letter-spacing: -0.02em;
+  line-height: 1.04; text-transform: uppercase; color: var(--fg);
+}
+.section-title {
+  font-size: clamp(22px, 3.2vw, 40px);
+  font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: var(--fg);
+}
+h3 { font-size: clamp(14px, 1.5vw, 18px); font-weight: 600; color: var(--fg); line-height: 1.25; }
+.lead { font-size: clamp(15px, 2vw, 22px); color: var(--fg-secondary); line-height: 1.55; max-width: 760px; }
+p { font-size: clamp(13px, 1.6vw, 17px); color: var(--fg-secondary); line-height: 1.55; }
+.caption { font-size: 11px; color: var(--fg-muted); line-height: 1.4; }
+.mono { font-family: var(--font-mono); }
+.accent { color: var(--primary); }
+.fw-medium { font-weight: 500; }
+.fg { color: var(--fg); }
+
+/* ── Wordmark hero (title / closing slides) ─────────────────────────── */
+/* Bitcount Grid Double, weight 300 per brand spec */
+.wordmark {
+  font-family: var(--font-wordmark);
+  font-size: clamp(28px, 5.8vw, 76px);
+  font-weight: 300;
+  font-optical-sizing: auto;
+  font-variation-settings: "slnt" 0, "CRSV" 0.5, "ELSH" 0, "ELXP" 0;
+  text-transform: uppercase; letter-spacing: 0.04em; line-height: 1;
+}
+.wordmark .wm-head { color: var(--fg); }
+.wordmark .wm-eng  { color: var(--primary); }
+.tagline { font-size: clamp(15px, 2.2vw, 26px); color: var(--fg); font-weight: 500; }
+
+/* ── Grids ──────────────────────────────────────────────────────────── */
+.grid { display: grid; gap: 16px; width: 100%; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.split  { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; width: 100%; }
+.split--wide { grid-template-columns: 3fr 2fr; }
+
+/* ── Card ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface-card);
+  border-radius: var(--r-lg); padding: 24px;
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+  box-shadow: 0 4px 24px rgba(0, 131, 131, 0);
+  transition: box-shadow var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+.card:hover {
+  box-shadow: 0 4px 24px rgba(0, 131, 131, 0.18);
+  transform: translateY(-2px);
+}
+/* teal label above card h3 */
+.card-tag {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--primary); margin-bottom: 4px;
+}
+.card--elevated { background: var(--elevated); }
+.card--centered { align-items: center; text-align: center; justify-content: center; }
+
+/* ── Metric ─────────────────────────────────────────────────────────── */
+.metric {
+  background: var(--surface-card); border-radius: var(--r-lg);
+  padding: 24px 16px; text-align: center;
+  box-shadow: 0 4px 24px rgba(0, 131, 131, 0);
+  transition: box-shadow var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+.metric:hover {
+  box-shadow: 0 4px 24px rgba(0, 131, 131, 0.18);
+  transform: translateY(-2px);
+}
+.metric .figure {
+  font-size: clamp(36px, 6vw, 72px); font-weight: 700;
+  color: var(--primary); line-height: 1;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.metric .figure-sup { font-size: 0.5em; vertical-align: super; }
+.metric .label {
+  font-size: clamp(11px, 1.2vw, 14px); color: var(--fg-secondary);
+  margin-top: 8px; line-height: 1.4;
+  font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.metric .note {
+  font-size: clamp(10px, 1.1vw, 12px); color: var(--fg-muted);
+  margin-top: 6px; line-height: 1.4;
+}
+
+/* ── Pills ──────────────────────────────────────────────────────────── */
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  background: var(--elevated); color: var(--fg-secondary);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: var(--r-sm);
+}
+
+/* ── Lists ──────────────────────────────────────────────────────────── */
+.list-check { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.list-check li { display: flex; align-items: flex-start; gap: 10px; font-size: clamp(13px,1.6vw,17px); color: var(--fg-secondary); line-height: 1.5; }
+.list-check li::before { content: '+'; color: var(--primary); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+.list-bullet { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.list-bullet li { display: flex; align-items: flex-start; gap: 10px; font-size: clamp(13px,1.6vw,17px); color: var(--fg-secondary); line-height: 1.5; }
+.list-bullet li::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 8px; }
+
+/* ── Table ──────────────────────────────────────────────────────────── */
+.slide-table { width: 100%; border-collapse: collapse; font-size: clamp(12px,1.45vw,15px); }
+.slide-table th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary); padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.slide-table td { padding: 9px 14px; color: var(--fg-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); line-height: 1.4; }
+.slide-table tr:last-child td { border-bottom: none; }
+.slide-table .td-accent { color: var(--fg); font-weight: 500; }
+.slide-table .td-mono   { font-family: var(--font-mono); font-size: 0.88em; color: var(--fg-muted); }
+
+/* ── CodePanel (from components/atoms/CodePanel.module.css) ─────────── */
+.code-panel {
+  background: var(--elevated);
+  border-radius: var(--r-lg);
+  padding: 24px;   /* --sp-lg */
+  overflow: auto;
+}
+.code-panel-header {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 16px;   /* --sp-md */
+  opacity: 0.6;          /* --op-muted */
+}
+.code-dot {
+  width: 8px; height: 8px; border-radius: 9999px;
+  background: var(--fg-muted); flex-shrink: 0;
+}
+.code-body {
+  font-family: var(--font-mono);
+  font-size: clamp(11px, 1.3vw, 14px);
+  line-height: 1.7; white-space: pre;
+  margin: 0; color: var(--fg-secondary);
+}
+/* syntax tokens - exact spec from CodePanel.module.css */
+.kw  { color: var(--primary); }
+.fn  { color: var(--fg); font-weight: 600; }
+.str { color: var(--fg); font-style: italic; }
+.cm  { color: var(--fg-muted); font-style: italic; }
+.op  { color: var(--fg-secondary); }
+
+/* ── Architecture flow ──────────────────────────────────────────────── */
+.arch-flow { display: flex; flex-direction: column; gap: 8px; }
+.arch-row  { display: flex; align-items: center; gap: 10px; font-size: clamp(11px, 1.3vw, 14px); }
+.arch-box  { background: var(--surface-card); border-radius: var(--r-md); padding: 6px 12px; white-space: nowrap; color: var(--fg); font-weight: 500; }
+.arch-box--accent { background: rgba(0,131,131,0.12); border: 1px solid rgba(0,131,131,0.25); color: var(--primary); font-weight: 600; }
+.arch-arrow { color: var(--fg-muted); font-size: 14px; }
+.arch-label { color: var(--fg-muted); font-size: 11px; font-style: italic; }
+
+/* ── Section-break title ────────────────────────────────────────────── */
+.section-break-title {
+  font-size: clamp(50px, 10vw, 120px);
+  font-weight: 900; letter-spacing: -0.04em; line-height: 0.92;
+  text-transform: uppercase; color: var(--fg);
+}
+
+/* ── Title slide: logo pinned top-left at pad spacing ───────────────── */
+.slide-logo-topleft {
+  position: absolute;
+  top: var(--pad); left: var(--pad);
+  z-index: 1;
+}
+
+/* Product name - must be the largest element on the title slide */
+.product-title {
+  font-size: clamp(52px, 9.5vw, 116px);
+  font-weight: 900; letter-spacing: -0.03em; line-height: 0.92;
+  text-transform: uppercase; color: var(--fg); text-align: center;
+}
+
+/* Scroll mode: footer shown only once, on the final slide ───────────── */
+body.scroll-mode .slide-footer { display: none; }
+body.scroll-mode .slide:last-child .slide-footer { display: flex; }
+
+/* ── CTA button ─────────────────────────────────────────────────────── */
+.cta-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary); color: var(--on-primary);
+  font-weight: 600; font-size: 14px;
+  padding: 12px 20px; border-radius: var(--r-md);
+  min-height: var(--size-touch); text-decoration: none; border: none; cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.cta-btn:hover { opacity: 0.88; }
+
+/* ── Progress bar ───────────────────────────────────────────────────── */
+.progress-bar {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: var(--primary); width: 0;
+  transition: width var(--dur-base) var(--ease-out); z-index: 200;
+}
+
+/* ── Animations - CSS-scoped, replays on every slide visit ─────────── */
+.slide.active .anim   { animation: fadeUp 0.45s ease-out both; }
+.slide.active .anim-2 { animation: fadeUp 0.45s ease-out 0.08s both; }
+.slide.active .anim-3 { animation: fadeUp 0.45s ease-out 0.16s both; }
+.slide.active .stagger > * { opacity: 0; animation: fadeUp 0.4s ease-out forwards; }
+.slide.active .stagger > *:nth-child(1) { animation-delay: 0.06s; }
+.slide.active .stagger > *:nth-child(2) { animation-delay: 0.12s; }
+.slide.active .stagger > *:nth-child(3) { animation-delay: 0.18s; }
+.slide.active .stagger > *:nth-child(4) { animation-delay: 0.24s; }
+.slide.active .stagger > *:nth-child(5) { animation-delay: 0.30s; }
+.slide.active .stagger > *:nth-child(6) { animation-delay: 0.36s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) { :root { --pad: 28px 22px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .slide, .progress-bar, .oc-panel, .oc-backdrop { transition: none; }
+  .slide.active .anim, .slide.active .anim-2, .slide.active .anim-3,
+  .slide.active .stagger > * { animation: none; opacity: 1; }
+}
+
+/* ── Offcanvas ──────────────────────────────────────────────────────── */
+.oc-backdrop {
+  position: fixed; inset: 0;
+  background: var(--black); opacity: 0;
+  z-index: 99; pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+.oc-backdrop--open { opacity: 0.6; pointer-events: auto; }
+
+.oc-panel {
+  position: fixed; top: 0; right: 0; height: 100%;
+  width: 50vw; max-width: 480px;
+  background: var(--surface); z-index: 100;
+  display: flex; flex-direction: column;
+  transform: translateX(100%); visibility: hidden;
+  transition: transform var(--dur-slow) var(--ease-spring),
+              visibility 0s var(--dur-slow);
+}
+.oc-panel--open {
+  transform: translateX(0); visibility: visible;
+  transition: transform var(--dur-slow) var(--ease-spring), visibility 0s;
+}
+@media (max-width: 768px) { .oc-panel { width: 100vw; max-width: none; } }
+
+.oc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; flex-shrink: 0;
+}
+.oc-wordmark {
+  font-family: var(--font-wordmark);
+  font-size: 20px; font-weight: 300;
+  font-optical-sizing: auto;
+  font-variation-settings: "slnt" 0, "CRSV" 0.5, "ELSH" 0, "ELXP" 0;
+  letter-spacing: 0.04em; text-transform: uppercase; line-height: 1;
+}
+.oc-wm-head { color: var(--fg); }
+.oc-wm-eng  { color: var(--primary); }
+.oc-header-actions { display: flex; align-items: center; gap: 2px; }
+
+.oc-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--size-touch); height: var(--size-touch);
+  background: transparent; border: none; cursor: pointer;
+  color: var(--fg); border-radius: var(--r-md);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.oc-icon-btn:hover { background: var(--elevated); }
+.oc-icon-btn svg { width: var(--size-icon); height: var(--size-icon); stroke: currentColor; stroke-width: 1.5; fill: none; }
+
+.oc-nav { flex: 1; overflow-y: auto; padding: 4px 16px 16px; }
+.oc-slide-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.oc-slide-btn {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 10px 12px; background: transparent; border: none;
+  cursor: pointer; color: var(--fg-secondary); border-radius: var(--r-md); text-align: left;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.oc-slide-btn:hover { background: var(--elevated); color: var(--fg); }
+.oc-slide-btn.oc-slide-active { color: var(--primary); }
+
+.oc-slide-num { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); flex-shrink: 0; min-width: 20px; }
+.oc-slide-active .oc-slide-num { color: var(--primary); }
+.oc-slide-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.oc-slide-section { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); }
+.oc-slide-title-text { font-size: 13px; font-weight: 500; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.oc-footer { flex-shrink: 0; padding: 12px 24px 16px; border-top: 1px solid var(--border); }
+.oc-hint { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); }
+</style>
+</head>
+<body class="dark-mode">
+<div class="progress-bar" id="progressBar"></div>
+<div class="slide-deck">
+
+<!-- ================================================================
+     SLIDE 1 - TITLE
+     ================================================================ -->
+<div class="slide active"
+     data-slide-title="AI Token Tracker"
+     data-slide-section="">
+  <!-- Logo: top-left, credentialing position, smaller than the product name -->
+  <div class="slide-logo-topleft anim">
+    <div class="wordmark" style="font-size:clamp(16px,2vw,26px);">
+      <span class="wm-head">Headless</span><span class="wm-eng">Engineer</span>
+    </div>
+  </div>
+  <!-- Body: product name is the dominant visual, logo is the credential -->
+  <div class="slide-body slide-body--center" style="gap:20px;">
+    <h1 class="product-title anim-2">AI TOKEN TRACKER</h1>
+    <p class="lead anim-3" style="text-align:center;max-width:560px;">
+      Complete visibility into your AI tool spend.<br>
+      Local. Private. No accounts required.
+    </p>
+    <div class="pill-row anim-3" style="justify-content:center;animation-delay:0.24s;">
+      <span class="pill">34 integrations</span>
+      <span class="pill">Live updates</span>
+      <span class="pill">LiteLLM pricing</span>
+      <span class="pill">Data export</span>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">headlessengineer.xyz</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 2 - BUSINESS: THE PROBLEM
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="The Problem"
+     data-slide-section="Business">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">For Business</p>
+    <h2 class="section-title">You are flying blind on AI spend</h2>
+  </div>
+  <div class="slide-body">
+    <div class="split">
+      <div class="anim-2" style="display:flex;flex-direction:column;gap:14px;">
+        <p class="lead">
+          Your team runs six or more AI coding tools. Each has its own dashboard,
+          its own billing, and its own definition of a "token."
+        </p>
+        <ul class="list-bullet">
+          <li>No single view of how many tokens you are burning</li>
+          <li>No visibility into which projects drive the most spend</li>
+          <li>Teams hit monthly limits without warning</li>
+          <li>Sub-agents and MCP tools multiply consumption invisibly</li>
+          <li>No data to forecast, optimise, or justify AI budget</li>
+        </ul>
+      </div>
+      <div class="grid stagger" style="gap:12px;">
+        <div class="metric">
+          <div class="figure">34<span class="figure-sup">+</span></div>
+          <div class="label">AI coding tools</div>
+          <div class="note">each writing usage data to a different place on disk</div>
+        </div>
+        <div class="metric">
+          <div class="figure">6<span class="figure-sup">+</span></div>
+          <div class="label">dashboards to check</div>
+          <div class="note">Claude, Cursor, Copilot, Codex, Gemini, Windsurf...</div>
+        </div>
+        <div class="metric">
+          <div class="figure" style="color:var(--fg-muted);">0</div>
+          <div class="label">unified cost view</div>
+          <div class="note">without AI Token Tracker</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Business</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 3 - BUSINESS: THE SOLUTION
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="The Solution"
+     data-slide-section="Business">
+  <div class="slide-header anim">
+    <p class="eyebrow">Solution</p>
+    <h2 class="section-title">One dashboard. All your AI tools.</h2>
+    <p class="lead" style="text-align:center;max-width:600px;">
+      AI Token Tracker reads what your tools write to disk.
+      No API key. No account. No data leaving your machine.
+    </p>
+  </div>
+  <div class="slide-body">
+    <div class="grid grid-3 stagger">
+      <div class="card">
+        <span class="card-tag">Local first</span>
+        <h3>Reads from disk</h3>
+        <p>Parses JSONL logs, SQLite databases, and VS Code storage files that AI tools write locally. Nothing is uploaded anywhere.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Accurate cost</span>
+        <h3>LiteLLM pricing</h3>
+        <p>Real-time model pricing for all 34 tools, refreshed every 24 hours from LiteLLM. Not just Claude - every tool you use.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Zero friction</span>
+        <h3>Instant setup</h3>
+        <p>Run <span class="mono accent">npm run dev</span>. Data appears automatically as you use your AI tools. No configuration needed.</p>
+      </div>
+    </div>
+    <div class="grid grid-3 stagger">
+      <div class="card">
+        <span class="card-tag">Live updates</span>
+        <h3>1-2 second refresh</h3>
+        <p>File watcher detects every AI tool write. Dashboard updates within seconds via SSE - no manual refresh needed.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Data export</span>
+        <h3>CSV and JSON</h3>
+        <p>Export any time range for any tool. Per-day, per-tool records with date, tokens, cost, model, and project. Your data, yours.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Dashboard</span>
+        <h3>Drag and resize</h3>
+        <p>Draggable, resizable widget layout. Each tool's dashboard layout is saved locally and persists across sessions.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Business</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 4 - BUSINESS: BUSINESS VALUE
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Business Value"
+     data-slide-section="Business">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Business Value</p>
+    <h2 class="section-title">From reactive to informed</h2>
+  </div>
+  <div class="slide-body">
+    <div class="grid grid-4 stagger">
+      <div class="metric">
+        <div class="figure" style="font-size:clamp(22px,3vw,38px);line-height:1.2;">
+          $XX<br><span style="font-size:0.55em;color:var(--fg-muted);">this month</span>
+        </div>
+        <div class="label">Spending Forecast</div>
+        <div class="note">Projected from trailing 7-day average. Know before the bill arrives.</div>
+      </div>
+      <div class="metric">
+        <div class="figure">80<span class="figure-sup" style="font-size:0.55em;">%</span></div>
+        <div class="label">Quota Awareness</div>
+        <div class="note">Browser notification when Claude daily quota hits your threshold.</div>
+      </div>
+      <div class="metric">
+        <div class="figure" style="font-size:clamp(22px,3vw,38px);line-height:1.2;">
+          $XX<br><span style="font-size:0.55em;color:var(--fg-muted);">saved</span>
+        </div>
+        <div class="label">Cache ROI</div>
+        <div class="note">Exact dollar amount your prompt cache saved vs. full input pricing.</div>
+      </div>
+      <div class="metric">
+        <div class="figure" style="font-size:clamp(22px,3vw,38px);">9am</div>
+        <div class="label">Daily Digest</div>
+        <div class="note">Opt-in browser notification: yesterday's total tokens, cost, and top tool.</div>
+      </div>
+    </div>
+    <div class="card anim-3">
+      <span class="card-tag">Cross-tool view on the Overview page</span>
+      <div class="pill-row" style="margin-top:4px;">
+        <span class="pill">Aggregated timeline</span>
+        <span class="pill">Cost by tool</span>
+        <span class="pill">Project attribution</span>
+        <span class="pill">Per-model spend</span>
+        <span class="pill">Hourly activity heatmap</span>
+        <span class="pill">Session duration histogram</span>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Business</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 5 - BUSINESS: 34 INTEGRATIONS
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="34 Integrations"
+     data-slide-section="Business">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Coverage</p>
+    <h2 class="section-title">34 integrations. Zero placeholders.</h2>
+  </div>
+  <div class="slide-body">
+    <div class="grid grid-3 stagger" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card">
+          <span class="card-tag">Anthropic Ecosystem</span>
+          <h3>Claude Code, Amp, Kiro</h3>
+          <p>Rich Claude plugin: sub-agent breakdown, skill analytics, MCP server calls, hook fire counts, cache ROI.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">VS Code Extensions</span>
+          <h3>Cline, Roo Code, Kilo Code, Copilot</h3>
+          <p>Reads VS Code globalStorage. Also picks up extensions installed inside Windsurf IDE.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">IDE Platforms</span>
+          <h3>Cursor, Windsurf, Zed</h3>
+          <p>Cursor via usage API with local auth token. Windsurf via globalStorage scan. Zed via SQLite threads.db.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card">
+          <span class="card-tag">Terminal Agents</span>
+          <h3>Codex, Gemini CLI, Goose, Grok Build, Qwen CLI</h3>
+          <p>JSONL session files and JSON logs parsed directly. Codex delta deduplication handled automatically.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">Cloud Agents</span>
+          <h3>Devin, OpenCode, Hermes, Mux, Antigravity</h3>
+          <p>SQLite databases read via node:sqlite. Full session history with per-conversation detail.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">Asian LLM Tools</span>
+          <h3>Kimi, ZCode, MiMo Code, Pi, JCode, and more</h3>
+          <p>Full parity - same cost tracking, same chart types, same export format as Western tools.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card card--elevated">
+          <span class="card-tag">How new tools are added</span>
+          <h3>One file. One registration line.</h3>
+          <p>The plugin interface is minimal: <span class="mono accent">isAvailable()</span> and <span class="mono accent">collect()</span>. Any AI tool that writes to disk can be supported in an afternoon.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">Data formats supported</span>
+          <h3>JSONL, SQLite, JSON, CSV</h3>
+          <p>And VS Code globalStorage binary format. All parsed on-device, never uploaded.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">Capabilities manifest</span>
+          <h3>Per-plugin feature flags</h3>
+          <p>Each plugin declares: cost, models, projects, sessions, rate limits. UI adapts automatically.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Business</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 6 - BUSINESS: OUTCOMES
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="What You Can Answer"
+     data-slide-section="Business">
+  <div class="slide-header anim">
+    <p class="eyebrow">Outcomes</p>
+    <h2 class="section-title">Questions you can finally answer</h2>
+  </div>
+  <div class="slide-body slide-body--center">
+    <ul class="list-check stagger" style="max-width:700px;width:100%;">
+      <li>Which AI tool costs me the most this month - and which project is the driver?</li>
+      <li>Am I about to hit my Claude daily message limit today?</li>
+      <li>How much is prompt caching actually saving me in real dollars?</li>
+      <li>Is my AI usage trending up or down this week - and on which tools?</li>
+      <li>What time of day am I heaviest AI consumer? When do I go quiet?</li>
+      <li>Which model am I migrating toward as new versions release?</li>
+    </ul>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Business</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 7 - SECTION BREAK: TECHNICAL
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="For Developers"
+     data-slide-section="">
+  <div class="slide-body" style="justify-content:center;gap:20px;">
+    <p class="eyebrow anim">Technical Deep-Dive</p>
+    <h2 class="section-break-title anim-2">
+      BUILT FOR<br><span class="accent">DEVELOPERS</span>
+    </h2>
+    <p class="lead anim-3" style="max-width:540px;">
+      How the plugin system, caching layer, and intelligence features work under the hood.
+    </p>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 8 - TECH: ARCHITECTURE
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Architecture"
+     data-slide-section="Technical">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Architecture</p>
+    <h2 class="section-title">Plugin registry. Route handlers. SQLite cache.</h2>
+  </div>
+  <div class="slide-body">
+    <div class="split">
+      <div class="arch-flow anim-2">
+        <div class="arch-row">
+          <div class="arch-box--accent">Browser</div>
+          <span class="arch-arrow">--&gt;</span>
+          <div class="arch-box" style="font-size:11px;">Server Components + Route Handlers<br><span style="color:var(--fg-muted);font-size:0.9em;">/api/plugins &nbsp;/api/summary &nbsp;/api/export</span></div>
+        </div>
+        <div class="arch-row" style="padding-left:20px;">
+          <div class="arch-box">Plugin Registry (singleton, 34 plugins)</div>
+        </div>
+        <div class="arch-row" style="padding-left:40px;">
+          <span class="arch-arrow">|</span>
+          <span class="arch-label">registry.register() wraps every plugin with SQLite cache</span>
+        </div>
+        <div class="arch-row" style="padding-left:40px;gap:8px;flex-wrap:wrap;">
+          <div class="arch-box" style="font-size:11px;">~23 JSONL plugins</div>
+          <div class="arch-box" style="font-size:11px;">8 SQLite plugins</div>
+          <div class="arch-box" style="font-size:11px;">2 API plugins</div>
+        </div>
+        <div class="arch-row" style="padding-left:40px;">
+          <span class="arch-arrow">|</span>
+          <span class="arch-label">reads local filesystem only</span>
+        </div>
+        <div class="arch-row" style="padding-left:40px;">
+          <div class="arch-box" style="font-size:11px;">~/.claude &nbsp;~/.codex &nbsp;~/.gemini &nbsp;VS Code globalStorage &nbsp;*.db</div>
+        </div>
+        <div class="arch-row" style="margin-top:10px;">
+          <div class="arch-box--accent">/api/stream</div>
+          <span class="arch-arrow">--&gt;</span>
+          <div class="arch-box" style="font-size:11px;">SSE + chokidar watcher<br><span style="color:var(--fg-muted);font-size:0.9em;">broadcasts pluginId on file change</span></div>
+          <span class="arch-arrow">--&gt;</span>
+          <div class="arch-box--accent">Browser refresh</div>
+        </div>
+      </div>
+      <div class="grid stagger" style="gap:12px;">
+        <div class="card">
+          <span class="card-tag">Data cache</span>
+          <h3>SQLite at ~/.config/aitokentracker/cache.db</h3>
+          <p>Schema: <span class="mono accent" style="font-size:0.85em;">plugin_cache(pluginId, days, collectedAt, data)</span>. mtime-based invalidation. Sub-5ms repeat reads.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">Pricing</span>
+          <h3>LiteLLM + 24h disk cache</h3>
+          <p>Daily refresh to <span class="mono accent" style="font-size:0.85em;">~/.config/aitokentracker/pricing.json</span>. 35+ model patterns. Bundled fallback if offline.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">Stack</span>
+          <h3>Next.js 16, React 19, node:sqlite</h3>
+          <p>Server Components for pre-rendered HTML. ECharts for charts. react-grid-layout for draggable dashboard. chokidar for file watching.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 9 - TECH: PLUGIN SYSTEM
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Plugin System"
+     data-slide-section="Technical">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Plugin Architecture</p>
+    <h2 class="section-title">One interface. Three plugin types.</h2>
+  </div>
+  <div class="slide-body">
+    <div class="split split--wide">
+      <div class="anim-2">
+        <div class="code-panel">
+          <div class="code-panel-header">
+            <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+          </div>
+          <pre class="code-body" style="font-size:clamp(10px,1.2vw,13px);"><span class="cm">// TokenPlugin interface - src/plugins/core/types.ts</span>
+<span class="kw">interface</span> <span class="fn">TokenPlugin</span> {
+  <span class="kw">readonly</span> id: <span class="str">string</span>
+  <span class="kw">readonly</span> name: <span class="str">string</span>
+  <span class="kw">readonly</span> dataPath: <span class="str">string</span>
+  <span class="kw">readonly</span> capabilities?: <span class="fn">PluginCapabilities</span>
+  <span class="cm">// { cost, models, projects, sessions, rateLimit }</span>
+
+  <span class="fn">isAvailable</span>(): <span class="fn">Promise</span>&lt;<span class="fn">AvailabilityResult</span>&gt;
+  <span class="cm">// reason: path_missing | parse_error | placeholder</span>
+
+  <span class="fn">collect</span>(options?: <span class="fn">CollectOptions</span>): <span class="fn">Promise</span>&lt;<span class="fn">PluginData</span>&gt;
+  <span class="cm">// wrapped transparently by cache in registry.register()</span>
+}
+
+<span class="cm">// getCostUSD() - src/lib/pricing.ts</span>
+<span class="cm">// shared by all non-Claude plugins via buildPluginData()</span>
+<span class="fn">getCostUSD</span>(model, inputTok, outputTok, cacheRead, cacheWrite)</pre>
+        </div>
+      </div>
+      <div class="grid stagger" style="gap:10px;">
+        <div class="card">
+          <span class="card-tag">~23 plugins - JSONL / JSON</span>
+          <h3>Claude Code, Codex, Gemini, Grok, Kimi, Qwen, Pi...</h3>
+          <p>Parse structured log files. <span class="mono accent" style="font-size:0.85em;">buildPluginData()</span> handles aggregation and cost for all of them.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">8 plugins - SQLite (node:sqlite)</span>
+          <h3>OpenCode, Zed, Hermes, Goose, Devin, Micode, Kilo, Antigravity</h3>
+          <p>Use <span class="mono accent" style="font-size:0.85em;">DatabaseSync</span> from <span class="mono accent" style="font-size:0.85em;">node:sqlite</span> - no extra dependencies. Read-only mode.</p>
+        </div>
+        <div class="card">
+          <span class="card-tag">2+ plugins - Remote API</span>
+          <h3>Cursor (CSV via cursor.com), Windsurf (globalStorage)</h3>
+          <p>Cursor: JWT from state.vscdb, fetches CSV, 1h file cache. <span class="mono accent" style="font-size:0.85em;">dataPath: ''</span> bypasses mtime check.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 10 - TECH: DATA SOURCES
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Data Sources"
+     data-slide-section="Technical">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Data Collection</p>
+    <h2 class="section-title">Reads what your tools write to disk</h2>
+  </div>
+  <div class="slide-body">
+    <table class="slide-table anim-2">
+      <thead>
+        <tr>
+          <th>Format</th>
+          <th>Tools</th>
+          <th>Path (macOS)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-accent">JSONL</td>
+          <td>Claude Code, Amp, Kiro (CLI)</td>
+          <td class="td-mono">~/.claude/projects/**/*.jsonl</td>
+        </tr>
+        <tr>
+          <td class="td-accent">JSONL</td>
+          <td>Codex (delta deduped), Grok Build, Pi, Qwen CLI, Gemini CLI</td>
+          <td class="td-mono">~/.codex/sessions/ &nbsp;~/.grok/ &nbsp;~/.gemini/tmp/</td>
+        </tr>
+        <tr>
+          <td class="td-accent">SQLite</td>
+          <td>OpenCode, Hermes, Zed, Goose, Devin, Micode, Kilo, Antigravity</td>
+          <td class="td-mono">~/.local/share/opencode/ &nbsp;**/*.db</td>
+        </tr>
+        <tr>
+          <td class="td-accent">VS Code globalStorage</td>
+          <td>Cline, Roo Code, Kilo Code, Copilot (OTEL JSONL), Windsurf extensions</td>
+          <td class="td-mono">~/Library/.../Code/User/globalStorage/</td>
+        </tr>
+        <tr>
+          <td class="td-accent">Remote API + 1h cache</td>
+          <td>Cursor</td>
+          <td class="td-mono">cursor.com/api/dashboard/export-usage-events-csv</td>
+        </tr>
+        <tr>
+          <td class="td-accent">JSON / NDJSON</td>
+          <td>Kiro (IDE), Devin Desktop, OpenCode Review, Command Code, Mux</td>
+          <td class="td-mono">~/Library/Application Support/...</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pill-row anim-3">
+      <span class="pill">mtime-based cache invalidation</span>
+      <span class="pill">read-only access</span>
+      <span class="pill">no writes to source files</span>
+      <span class="pill">chokidar watches all dataPath dirs</span>
+      <span class="pill">LiteLLM pricing applied at collect() time</span>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 11 - TECH: LIVE UPDATES + CACHE
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Live Updates and Cache"
+     data-slide-section="Technical">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Performance</p>
+    <h2 class="section-title">Sub-5ms reads. 1-2 second live updates.</h2>
+  </div>
+  <div class="slide-body">
+    <div class="grid grid-2">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <p class="caption" style="text-transform:uppercase;letter-spacing:0.08em;color:var(--primary);">File watcher -- SSE stream -- browser refresh</p>
+        <div class="code-panel anim-2">
+          <div class="code-panel-header">
+            <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+          </div>
+          <pre class="code-body" style="font-size:clamp(10px,1.2vw,13px);"><span class="cm">// src/lib/watcher.ts</span>
+<span class="kw">const</span> watcher = chokidar.<span class="fn">watch</span>(dataPaths, {
+  ignoreInitial: <span class="str">true</span>,
+  ignored: /(^|[\/\\])\../
+})
+
+watcher.<span class="fn">on</span>(<span class="str">'change'</span>, (filePath) =&gt; {
+  <span class="kw">const</span> pluginId = <span class="fn">resolvePlugin</span>(filePath)
+  <span class="fn">broadcastSSE</span>({ pluginId })
+})
+
+<span class="cm">// src/app/api/stream/route.ts</span>
+<span class="cm">// SSE with 25s heartbeat, X-Accel-Buffering: no</span>
+<span class="cm">// LiveUpdater.tsx: EventSource('/api/stream')</span>
+<span class="cm">// -> router.refresh() on every message</span></pre>
+        </div>
+        <div class="card">
+          <span class="card-tag">Fallback</span>
+          <h3>10-second polling if SSE unavailable</h3>
+          <p>Auto-reconnect every 8s on error. No data loss during reconnect window.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <p class="caption" style="text-transform:uppercase;letter-spacing:0.08em;color:var(--primary);">SQLite cache -- mtime invalidation</p>
+        <div class="code-panel anim-3">
+          <div class="code-panel-header">
+            <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+          </div>
+          <pre class="code-body" style="font-size:clamp(10px,1.2vw,13px);"><span class="cm">// src/lib/cache.ts</span>
+<span class="cm">// schema: plugin_cache(pluginId, days, collectedAt, data)</span>
+<span class="cm">// path: ~/.config/aitokentracker/cache.db</span>
+
+<span class="kw">async function</span> <span class="fn">withCache</span>(pluginId, days, dataPath, fn) {
+  <span class="kw">const</span> maxMtime = <span class="fn">maxMtimeMs</span>(dataPath)
+  <span class="kw">const</span> cached  = <span class="fn">getCache</span>(pluginId, days)
+
+  <span class="kw">if</span> (cached &amp;&amp; maxMtime &lt;= cached.collectedAt) {
+    <span class="kw">return</span> cached.data  <span class="cm">// cache hit: &lt;5ms</span>
+  }
+
+  <span class="kw">const</span> fresh = <span class="kw">await</span> <span class="fn">fn</span>()
+  <span class="fn">setCache</span>(pluginId, days, fresh)
+  <span class="kw">return</span> fresh
+}
+<span class="cm">// dataPath:'' (Cursor) bypasses mtime check</span></pre>
+        </div>
+        <div class="card">
+          <span class="card-tag">Cache clear</span>
+          <h3>POST /api/cache/clear</h3>
+          <p>Optional <span class="mono accent" style="font-size:0.85em;">?pluginId=</span> param. Refresh button calls this before <span class="mono accent" style="font-size:0.85em;">router.refresh()</span>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 12 - TECH: INTELLIGENCE FEATURES
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Intelligence Features"
+     data-slide-section="Technical">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Personal Intelligence</p>
+    <h2 class="section-title">Analytics no other tool provides</h2>
+  </div>
+  <div class="slide-body">
+    <div class="grid grid-3 stagger">
+      <div class="card">
+        <span class="card-tag">Spending forecast</span>
+        <h3>"At this pace - $XX this month"</h3>
+        <p>Computed from trailing 7-day average daily cost across all plugins. KPI card on the Overview page.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Hourly heatmap</span>
+        <h3>Hour-of-day x day-of-week</h3>
+        <p>24x7 grid showing token volume by hour and weekday. Surfaces work pattern habits the daily calendar cannot show.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Cache ROI</span>
+        <h3>Exact savings vs. no-cache pricing</h3>
+        <p><span class="mono" style="font-size:0.85em;color:var(--fg-muted);">cacheReadTokens x (inputRate - cacheReadRate)</span>. KPI card + secondary "without cache" line on cost chart.</p>
+      </div>
+    </div>
+    <div class="grid grid-3 stagger">
+      <div class="card">
+        <span class="card-tag">Model transition timeline</span>
+        <h3>Stacked area - model share over time</h3>
+        <p>Watch your claude-3.5-sonnet to claude-sonnet-4 migration in a chart. Understand when and how fast shifts happen.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Cross-tool project attribution</span>
+        <h3>Total AI cost per repo</h3>
+        <p>Joins topProjects[] from all plugins by repo root. One row per project with per-tool cost breakdown.</p>
+      </div>
+      <div class="card">
+        <span class="card-tag">Keyboard-first conversation table</span>
+        <h3>Arrow keys, Enter to expand</h3>
+        <p>Roving tabindex pattern. Enter or Space expands a row showing full token breakdown: input, output, cache read/write, timestamp.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 13 - TECH: EXTENSIBILITY
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Extensibility"
+     data-slide-section="Technical">
+  <div class="slide-header slide-header--left anim">
+    <p class="eyebrow">Open Architecture</p>
+    <h2 class="section-title">Add a new tool in an afternoon</h2>
+  </div>
+  <div class="slide-body">
+    <div class="split">
+      <div class="anim-2">
+        <div class="code-panel">
+          <div class="code-panel-header">
+            <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+          </div>
+          <pre class="code-body" style="font-size:clamp(10px,1.2vw,13px);"><span class="cm">// 1. Create src/plugins/mytool/index.ts</span>
+<span class="kw">const</span> MY_PLUGIN: <span class="fn">TokenPlugin</span> = {
+  id: <span class="str">'mytool'</span>, name: <span class="str">'My Tool'</span>, icon: <span class="str">'MT'</span>,
+  dataPath: <span class="fn">path.join</span>(HOME, <span class="str">'.mytool/sessions'</span>),
+  capabilities: { cost: <span class="str">true</span>, models: <span class="str">true</span>, sessions: <span class="str">true</span> },
+
+  <span class="kw">async</span> <span class="fn">isAvailable</span>() {
+    <span class="kw">return</span> <span class="fn">availResult</span>(<span class="kw">await</span> <span class="fn">pathExists</span>(DATA_DIR))
+    <span class="cm">// true  -> { available: true }</span>
+    <span class="cm">// false -> { available: false, reason: 'path_missing' }</span>
+  },
+
+  <span class="kw">async</span> <span class="fn">collect</span>(options?) {
+    <span class="kw">const</span> conversations: <span class="fn">ConversationSummary</span>[] = <span class="cm">/* parse */</span> []
+    <span class="kw">if</span> (!conversations.length) <span class="kw">return</span> <span class="fn">emptyPluginData</span>(<span class="str">'mytool'</span>)
+    <span class="kw">return</span> <span class="fn">buildPluginData</span>(<span class="str">'mytool'</span>, conversations, options)
+    <span class="cm">// handles: daily agg, cost, models, projects, hourly heatmap</span>
+  }
+}
+
+<span class="cm">// 2. Register in src/plugins/index.ts</span>
+registry.<span class="fn">register</span>(MY_PLUGIN)</pre>
+        </div>
+      </div>
+      <div class="grid stagger" style="gap:10px;">
+        <div class="card">
+          <span class="card-tag">What you get for free</span>
+          <h3>Register once. Appears everywhere.</h3>
+          <ul class="list-bullet" style="margin-top:6px;">
+            <li>Plugin detail page with all standard widgets</li>
+            <li>Overview KPI card and aggregated timeline</li>
+            <li>SQLite mtime cache - sub-5ms repeated reads</li>
+            <li>chokidar live watch on dataPath</li>
+            <li>Data export via /api/export</li>
+            <li>OffcanvasNav drawer entry</li>
+          </ul>
+        </div>
+        <div class="card card--elevated">
+          <span class="card-tag">Two helpers do the heavy lifting</span>
+          <h3>buildPluginData() + getCostUSD()</h3>
+          <p>Parse sessions into <span class="mono accent" style="font-size:0.85em;">ConversationSummary[]</span>, call <span class="mono accent" style="font-size:0.85em;">buildPluginData()</span> and get daily activity, cost, models, projects, and hourly heatmap - computed for you.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Technical</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 14 - CLOSING / GET STARTED
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Run It"
+     data-slide-section="">
+  <div class="slide-body slide-body--center" style="justify-content:center;gap:20px;">
+    <div class="anim">
+      <div class="wordmark" style="font-size:clamp(22px,4.2vw,52px);">
+        <span class="wm-head">Headless</span><span class="wm-eng">Engineer</span>
+      </div>
+    </div>
+    <h2 class="section-title anim-2" style="text-align:center;">
+      npm run dev
+    </h2>
+    <p class="lead anim-3" style="text-align:center;max-width:460px;">
+      Runs on port 9295. Data appears automatically<br>as you use your AI tools.
+    </p>
+    <div class="anim" style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:8px;">
+      <div class="code-panel" style="max-width:380px;width:100%;">
+        <div class="code-panel-header">
+          <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+        </div>
+        <pre class="code-body"><span class="kw">git</span> clone &lt;repo&gt;
+<span class="kw">npm</span> install
+<span class="kw">npm</span> run dev
+
+<span class="cm"># open http://localhost:9295</span></pre>
+      </div>
+      <div class="pill-row" style="justify-content:center;">
+        <span class="pill">34 integrations</span>
+        <span class="pill">no accounts</span>
+        <span class="pill">no cloud</span>
+        <span class="pill">data stays on your machine</span>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">headlessengineer.xyz</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 15 - Q&A
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Q and A"
+     data-slide-section="">
+  <div class="slide-body slide-body--center" style="justify-content:center;gap:18px;">
+    <p class="eyebrow anim">Open floor</p>
+    <h2 class="section-break-title anim-2" style="text-align:center;font-size:clamp(60px,12vw,140px);">
+      Q<span class="accent">&amp;</span>A
+    </h2>
+    <p class="lead anim-3" style="text-align:center;max-width:520px;">
+      Ask anything - architecture decisions, plugin support,
+      pricing accuracy, or how to add your own tool.
+    </p>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">Questions</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+<!-- ================================================================
+     SLIDE 16 - THANK YOU (last slide - footer visible in scroll mode)
+     ================================================================ -->
+<div class="slide"
+     data-slide-title="Thank You"
+     data-slide-section="">
+  <div class="slide-body slide-body--center" style="justify-content:center;gap:22px;">
+    <div class="anim">
+      <p class="eyebrow" style="margin-bottom:16px;">AI Token Tracker</p>
+      <div class="wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></div>
+    </div>
+    <h2 class="section-break-title anim-2" style="text-align:center;font-size:clamp(50px,9vw,108px);">
+      THANK<br>YOU
+    </h2>
+    <p class="lead anim-3" style="text-align:center;max-width:480px;">
+      Built in the open. Every plugin, every line of code.
+    </p>
+    <div class="anim" style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:4px;">
+      <span class="mono" style="font-size:clamp(12px,1.5vw,16px);color:var(--fg);">headlessengineer.xyz</span>
+      <span style="font-size:clamp(11px,1.3vw,14px);color:var(--fg-muted);">
+        github.com/headlessengineer/aitokentracker
+      </span>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span class="footer-section">headlessengineer.xyz</span>
+    <span class="footer-wordmark"><span class="wm-head">Headless</span><span class="wm-eng">Engineer</span></span>
+  </div>
+</div>
+
+</div><!-- /.slide-deck -->
+<script src="https://headlessengineer.github.io/js/presentation.js"></script>
+</body>
+</html>

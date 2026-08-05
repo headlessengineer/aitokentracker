@@ -1,0 +1,36 @@
+.highlighted {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.projectLink {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.projectLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.cost {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-secondary);
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.toolChip {
+  display: inline-block;
+  padding: 1px var(--space-xs);
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
